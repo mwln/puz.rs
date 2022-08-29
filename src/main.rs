@@ -46,28 +46,7 @@ fn main() -> std::io::Result<()> {
     }
 
     println!("{header:?}");
-    
-    
-    // read till offset
-    // let mut offset = [0; 0x2C];
-    // file.read_exact(&mut offset)?;
 
-    // then get the byte of information i want 
-    //let mut buf = [0; 0x2];
-//    file.read_exact(&mut buf)?;
-    
-    // let grid_size: Header = Header { width: buf[0], height: buf[1] };
-    //
-    // create for loop to iterate over important objects
-    // that we want to process in the file, run the processor on them
-    // and return the desired type. assign that to the struct
-    
- //   println!("{buf:?}");
-//
-    Ok(())
+    Ok(())        
 }
-
-// function read_bytes_from_offset
-// params:  file, byte offset, byte length to read, type to return
-// returns: <type to return> (string, int, Vec<u8>
 
