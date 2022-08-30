@@ -3,6 +3,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
 };
 use byteorder::{ByteOrder, LittleEndian};
+use std::str;
 
 trait ReadAtPosition {
     fn read_at_position(&mut self, offset: u8, buffer: &mut [u8]) -> std::io::Result<()>;
@@ -51,7 +52,7 @@ fn main() -> std::io::Result<()> {
         PuzzleBytes  { id: "unknown_bitmask", offset: 0x30, values: vec![0u8; 0x02]},
         PuzzleBytes  { id: "scrambled_tag", offset: 0x32, values: vec![0u8; 0x02]},
     ];
-
+    
     let mut board_width = 0;
     let mut board_height = 0;
     let mut num_clues = 0;
@@ -66,11 +67,22 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    let board = Board { width: board_width, height: board_height };
-    let crossword = Crossword { num_clues };
+    let mut board_layout = vec![
+        PuzzleBytes { id: "layout", offset: 0x34, values: vec![0u8; (board_width * board_height).into() ]}
+    ];
 
-    println!("{board:?}");
-    println!("{crossword:?}");
+    let mut solution = "";
+
+    for bytes in board_layout.iter_mut() {
+        file.read_at_position(bytes.offset, &mut bytes.values).ok();
+        match bytes.id {
+            "layout" => solution = str::from_utf8(&bytes.values).unwrap(),
+            _ => (),
+        }
+    }
+
+    println!("{solution:?}");
+    println!("{num_clues:?}");
 
     Ok(())        
 }
