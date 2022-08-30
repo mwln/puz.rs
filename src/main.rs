@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
 };
+use byteorder::{ByteOrder, LittleEndian};
 
 trait ReadAtPosition {
     fn read_at_position(&mut self, offset: u8, buffer: &mut [u8]) -> std::io::Result<()>;
@@ -19,6 +20,17 @@ struct PuzzleBytes<'a> {
     id: &'a str,
     offset: u8,
     values: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct Board {
+    width: u8,
+    height: u8,
+}
+
+#[derive(Debug)]
+struct Crossword {
+    num_clues: u16,
 }
 
 fn main() -> std::io::Result<()> {
@@ -40,12 +52,25 @@ fn main() -> std::io::Result<()> {
         PuzzleBytes  { id: "scrambled_tag", offset: 0x32, values: vec![0u8; 0x02]},
     ];
 
-    // loop across the header vector
+    let mut board_width = 0;
+    let mut board_height = 0;
+    let mut num_clues = 0;
+    
     for bytes in header.iter_mut() {
         file.read_at_position(bytes.offset, &mut bytes.values).ok();
+        match bytes.id {
+            "width" => { board_width = *bytes.values.get(0).unwrap() },
+            "height" => { board_height = *bytes.values.get(0).unwrap() },
+            "num_clues" => { num_clues = LittleEndian::read_u16(&bytes.values) },
+            _ => (),
+        }
     }
 
-    println!("{header:?}");
+    let board = Board { width: board_width, height: board_height };
+    let crossword = Crossword { num_clues };
+
+    println!("{board:?}");
+    println!("{crossword:?}");
 
     Ok(())        
 }
