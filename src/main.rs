@@ -1,29 +1,20 @@
 use byteorder::{ByteOrder, LittleEndian};
+use std::env;
+use std::io;
 use std::str;
 use std::{
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{BufRead, BufReader, Read},
 };
 
 const INFO_SIZE: u8 = 3;
 const NUL_CHAR: char = '\0';
 
-trait ReadAtPosition {
-    fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()>;
-}
-
 trait ReadNulSeperatedStrings {
     fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String>;
 }
 
-impl ReadAtPosition for File {
-    fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()> {
-        self.seek(SeekFrom::Start(offset.into()))?;
-        self.read_exact(buffer)
-    }
-}
-
-impl ReadNulSeperatedStrings for File {
+impl ReadNulSeperatedStrings for Box<dyn BufRead> {
     fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String> {
         let mut strings = Vec::new();
         for _ in 1..=num_strings {
@@ -66,7 +57,11 @@ struct Crossword {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut file = File::open("Nov2493.puz")?;
+    let input = env::args().nth(1);
+    let mut reader: Box<dyn BufRead> = match input {
+        None => Box::new(BufReader::new(io::stdin())),
+        Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())),
+    };
 
     let mut board_width = 0;
     let mut board_height = 0;
@@ -106,7 +101,7 @@ fn main() -> std::io::Result<()> {
             values: vec![0u8; 0x04],
         },
         PuzzleBytes {
-            id: "reserved",
+            id: "reserved_1c",
             offset: 0x1C,
             values: vec![0u8; 0x02],
         },
@@ -114,6 +109,11 @@ fn main() -> std::io::Result<()> {
             id: "scrambled_checksum",
             offset: 0x1E,
             values: vec![0u8; 0x02],
+        },
+        PuzzleBytes {
+            id: "reserved_20",
+            offset: 0x20,
+            values: vec![0u8; 0x0C],
         },
         PuzzleBytes {
             id: "width",
@@ -143,7 +143,9 @@ fn main() -> std::io::Result<()> {
     ];
 
     for bytes in header.iter_mut() {
-        file.read_at_position(bytes.offset, &mut bytes.values).ok();
+        reader.read_exact(&mut bytes.values).ok();
+        // file.read_at_position(bytes.offset, &mut bytes.values).ok();
+
         match bytes.id {
             "width" => board_width = *bytes.values.get(0).unwrap(),
             "height" => board_height = *bytes.values.get(0).unwrap(),
@@ -151,6 +153,12 @@ fn main() -> std::io::Result<()> {
             _ => (),
         }
     }
+
+    println!("{board_width:?}");
+    println!("{board_height:?}");
+    println!("{num_clues:?}");
+
+    return Ok(());
 
     // TODO derive properties in a created struct
     let board_size: u16 = (board_width * board_height).into();
@@ -171,7 +179,7 @@ fn main() -> std::io::Result<()> {
     ];
 
     for bytes in board_layout.iter_mut() {
-        file.read_at_position(bytes.offset, &mut bytes.values).ok();
+        reader.read_exact(&mut bytes.values).ok();
         match bytes.id {
             "solution" => solution_board = str::from_utf8(&bytes.values).unwrap(),
             "blank" => blank_board = str::from_utf8(&bytes.values).unwrap(),
@@ -179,21 +187,58 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    // set offset for reading the strings
-    file.seek(SeekFrom::Start(string_offset.into()))?;
+    // TODO reimpl this
+    // file.seek(SeekFrom::Start(string_offset.into()))?;
 
-    let info_strings = file.read_n_nul_seperated_strings(INFO_SIZE.into());
-    let puzzle_clues = file.read_n_nul_seperated_strings(num_clues);
-    let note = file.read_n_nul_seperated_strings(1);
+    let info_strings = reader.read_n_nul_seperated_strings(INFO_SIZE.into());
+    let puzzle_clues = reader.read_n_nul_seperated_strings(num_clues);
+    let note = reader.read_n_nul_seperated_strings(1);
 
     // cursor is now at position for GEXT
-    let gext = file.read_n_nul_seperated_strings(1);
+    let gext = reader.read_n_nul_seperated_strings(1);
     let _gext_bytes = &gext[0].as_bytes();
 
     println!("{:?}", info_strings);
     println!("{:?}", puzzle_clues);
     println!("{:?}", note);
     println!("{:?}", gext);
+    let mut till_gext = Vec::new();
+    let mut compare = String::from(" ");
+
+    while compare != "GEXT" {
+        let mut text = String::new();
+        let mut read = 1;
+        while read != 0 {
+            let mut buf = vec![0u8; 1];
+            reader.read_exact(&mut buf)?;
+            let chr = format!("{}", buf[0] as char);
+            if chr != "\0" {
+                text.push_str(&chr);
+            }
+            if text == "GEXT" {
+                break;
+            }
+            read = buf[0];
+        }
+        compare = text.to_owned().trim().to_string();
+        till_gext.push(text);
+    }
+
+    let length_of_strings = till_gext.len();
+    let mut gext = vec![0u8; board_size.into()];
+    reader.read_exact(&mut gext)?;
+
+    let mut buf_two = vec![];
+    reader.read_exact(&mut buf_two)?;
+
+    println!("{board_size:?}");
+    println!("{solution_board:?}");
+    println!("{blank_board:?}");
+    println!("{till_gext:?}");
+    println!("{length_of_strings:?}");
+    println!("{num_clues:?}");
+    println!("{board_size:?}");
+    println!("{gext:?}");
 
     Ok(())
 }
