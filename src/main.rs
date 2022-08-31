@@ -6,11 +6,11 @@ use byteorder::{ByteOrder, LittleEndian};
 use std::str;
 
 trait ReadAtPosition {
-    fn read_at_position(&mut self, offset: u8, buffer: &mut [u8]) -> std::io::Result<()>;
+    fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()>;
 }
 
 impl ReadAtPosition for File {
-    fn read_at_position(&mut self, offset: u8, buffer: &mut [u8]) -> std::io::Result<()> {
+    fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()> {
         self.seek(SeekFrom::Start(offset.into()))?;
         self.read_exact(buffer)
     }
@@ -19,7 +19,7 @@ impl ReadAtPosition for File {
 #[derive(Debug)]
 struct PuzzleBytes<'a> {
     id: &'a str,
-    offset: u8,
+    offset: u16,
     values: Vec<u8>,
 }
 
@@ -36,6 +36,12 @@ struct Crossword {
 
 fn main() -> std::io::Result<()> {
     let mut file = File::open("Nov2493.puz")?;
+    
+    let mut board_width = 0;
+    let mut board_height = 0;
+    let mut num_clues = 0;
+    let mut solution_board = "";
+    let mut blank_board = "";
 
     let mut header = vec![
         PuzzleBytes  { id: "checksum", offset: 0x00, values: vec![0u8; 0x02] },
@@ -53,10 +59,6 @@ fn main() -> std::io::Result<()> {
         PuzzleBytes  { id: "scrambled_tag", offset: 0x32, values: vec![0u8; 0x02]},
     ];
     
-    let mut board_width = 0;
-    let mut board_height = 0;
-    let mut num_clues = 0;
-    
     for bytes in header.iter_mut() {
         file.read_at_position(bytes.offset, &mut bytes.values).ok();
         match bytes.id {
@@ -66,23 +68,48 @@ fn main() -> std::io::Result<()> {
             _ => (),
         }
     }
-
+    
+    // TODO derive properties in a created struct
+    let board_size: u16 = (board_width * board_height).into();
+    let blank_offset = board_size + 0x34;
+    let string_offset = blank_offset + board_size;
+    
     let mut board_layout = vec![
-        PuzzleBytes { id: "layout", offset: 0x34, values: vec![0u8; (board_width * board_height).into() ]}
-    ];
-
-    let mut solution = "";
-
+        PuzzleBytes { id: "solution", offset: 0x34, values: vec![0u8; board_size.into()]},
+        PuzzleBytes { id: "blank", offset: blank_offset, values: vec![0u8; board_size.into()]},
+    ]; 
+    
     for bytes in board_layout.iter_mut() {
         file.read_at_position(bytes.offset, &mut bytes.values).ok();
         match bytes.id {
-            "layout" => solution = str::from_utf8(&bytes.values).unwrap(),
+            "solution" => solution_board = str::from_utf8(&bytes.values).unwrap(),
+            "blank" => blank_board = str::from_utf8(&bytes.values).unwrap(),
             _ => (),
         }
     }
 
-    println!("{solution:?}");
+    file.seek(SeekFrom::Start(string_offset.into()))?;
+
+    // TODO get this working
+    //let mut the_rest = Vec::new();
+    //let mut sparkle_heart = String::new();
+    //let reset = vec![0u8; 0x01];
+    //while sparkle_heart != "GEXT" {
+    //    let mut buf = vec![0u8; 0x01];
+    //    let mut read = buf[0]; 
+    //    while read != 0 {
+    //        file.read_exact(&mut buf)?;
+    //        buf = reset;
+    //        read = buf[0];
+    //    }
+    //    the_rest.push(sparkle_heart);
+    //}
+
+    println!("{board_size:?}");
     println!("{num_clues:?}");
+    println!("{solution_board:?}");
+    println!("{blank_board:?}");
+    // println!("{the_rest:?}");
 
     Ok(())        
 }
