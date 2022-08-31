@@ -6,15 +6,42 @@ use std::{
 };
 
 const INFO_SIZE: u8 = 3;
+const NUL_CHAR: char = '\0';
 
 trait ReadAtPosition {
     fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()>;
+}
+
+trait ReadNulSeperatedStrings {
+    fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String>;
 }
 
 impl ReadAtPosition for File {
     fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()> {
         self.seek(SeekFrom::Start(offset.into()))?;
         self.read_exact(buffer)
+    }
+}
+
+impl ReadNulSeperatedStrings for File {
+    fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String> {
+        let mut strings = Vec::new();
+        for _ in 1..=num_strings {
+            let mut text = String::new();
+            let mut read = 1;
+            while read != 0 {
+                let mut buf = vec![0u8; 1];
+                self.read_exact(&mut buf).unwrap();
+                let current_char = buf[0] as char;
+                if current_char != NUL_CHAR {
+                    text.push_str(&current_char.to_string());
+                } else {
+                    read = 0;
+                }
+            }
+            strings.push(text);
+        }
+        strings
     }
 }
 
@@ -152,50 +179,21 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    // set offset for reading the strings
     file.seek(SeekFrom::Start(string_offset.into()))?;
 
-    // fn read_n_strings_till_nul(&mut self, n: u16) -> vec![] {}
-    // fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()> {
+    let info_strings = file.read_n_nul_seperated_strings(INFO_SIZE.into());
+    let puzzle_clues = file.read_n_nul_seperated_strings(num_clues);
+    let note = file.read_n_nul_seperated_strings(1);
 
-    for i in 0..INFO_SIZE {}
+    // cursor is now at position for GEXT
+    let gext = file.read_n_nul_seperated_strings(1);
+    let _gext_bytes = &gext[0].as_bytes();
 
-    let mut till_gext = Vec::new();
-    let mut compare = String::from(" ");
-
-    while compare != "GEXT" {
-        let mut text = String::new();
-        let mut read = 1;
-        while read != 0 {
-            let mut buf = vec![0u8; 1];
-            file.read_exact(&mut buf)?;
-            let chr = format!("{}", buf[0] as char);
-            if chr != "\0" {
-                text.push_str(&chr);
-            }
-            if text == "GEXT" {
-                break;
-            }
-            read = buf[0];
-        }
-        compare = text.to_owned().trim().to_string();
-        till_gext.push(text);
-    }
-
-    let length_of_strings = till_gext.len();
-    let mut gext = vec![0u8; board_size.into()];
-    file.read_exact(&mut gext)?;
-
-    let mut buf_two = vec![];
-    file.read_exact(&mut buf_two)?;
-
-    println!("{board_size:?}");
-    println!("{solution_board:?}");
-    println!("{blank_board:?}");
-    println!("{till_gext:?}");
-    println!("{length_of_strings:?}");
-    println!("{num_clues:?}");
-    println!("{board_size:?}");
-    println!("{gext:?}");
+    println!("{:?}", info_strings);
+    println!("{:?}", puzzle_clues);
+    println!("{:?}", note);
+    println!("{:?}", gext);
 
     Ok(())
 }
