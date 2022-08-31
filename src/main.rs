@@ -5,6 +5,8 @@ use std::{
     io::{Read, Seek, SeekFrom},
 };
 
+const INFO_SIZE: u8 = 3;
+
 trait ReadAtPosition {
     fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()>;
 }
@@ -31,7 +33,9 @@ struct Board {
 
 #[derive(Debug)]
 struct Crossword {
-    num_clues: u16,
+    title: String,
+    author: String,
+    copyright: String,
 }
 
 fn main() -> std::io::Result<()> {
@@ -150,26 +154,48 @@ fn main() -> std::io::Result<()> {
 
     file.seek(SeekFrom::Start(string_offset.into()))?;
 
-    // TODO get this working
-    //let mut the_rest = Vec::new();
-    //let mut sparkle_heart = String::new();
-    //let reset = vec![0u8; 0x01];
-    //while sparkle_heart != "GEXT" {
-    //    let mut buf = vec![0u8; 0x01];
-    //    let mut read = buf[0];
-    //    while read != 0 {
-    //        file.read_exact(&mut buf)?;
-    //        buf = reset;
-    //        read = buf[0];
-    //    }
-    //    the_rest.push(sparkle_heart);
-    //}
+    // fn read_n_strings_till_nul(&mut self, n: u16) -> vec![] {}
+    // fn read_at_position(&mut self, offset: u16, buffer: &mut [u8]) -> std::io::Result<()> {
+
+    for i in 0..INFO_SIZE {}
+
+    let mut till_gext = Vec::new();
+    let mut compare = String::from(" ");
+
+    while compare != "GEXT" {
+        let mut text = String::new();
+        let mut read = 1;
+        while read != 0 {
+            let mut buf = vec![0u8; 1];
+            file.read_exact(&mut buf)?;
+            let chr = format!("{}", buf[0] as char);
+            if chr != "\0" {
+                text.push_str(&chr);
+            }
+            if text == "GEXT" {
+                break;
+            }
+            read = buf[0];
+        }
+        compare = text.to_owned().trim().to_string();
+        till_gext.push(text);
+    }
+
+    let length_of_strings = till_gext.len();
+    let mut gext = vec![0u8; board_size.into()];
+    file.read_exact(&mut gext)?;
+
+    let mut buf_two = vec![];
+    file.read_exact(&mut buf_two)?;
 
     println!("{board_size:?}");
-    println!("{num_clues:?}");
     println!("{solution_board:?}");
     println!("{blank_board:?}");
-    // println!("{the_rest:?}");
+    println!("{till_gext:?}");
+    println!("{length_of_strings:?}");
+    println!("{num_clues:?}");
+    println!("{board_size:?}");
+    println!("{gext:?}");
 
     Ok(())
 }
