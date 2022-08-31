@@ -56,13 +56,7 @@ struct Crossword {
     copyright: String,
 }
 
-fn main() -> std::io::Result<()> {
-    let input = env::args().nth(1);
-    let mut reader: Box<dyn BufRead> = match input {
-        None => Box::new(BufReader::new(io::stdin())),
-        Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())),
-    };
-
+fn run(mut reader: Box<dyn BufRead>) -> std::io::Result<()> {
     let mut board_width = 0;
     let mut board_height = 0;
     let mut num_clues = 0;
@@ -154,12 +148,6 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    println!("{board_width:?}");
-    println!("{board_height:?}");
-    println!("{num_clues:?}");
-
-    return Ok(());
-
     // TODO derive properties in a created struct
     let board_size: u16 = (board_width * board_height).into();
     let blank_offset = board_size + 0x34;
@@ -241,4 +229,22 @@ fn main() -> std::io::Result<()> {
     println!("{gext:?}");
 
     Ok(())
+}
+
+fn main() -> std::io::Result<()> {
+    let input = env::args().nth(1);
+    let reader: Box<dyn BufRead> = match input {
+        None => Box::new(BufReader::new(io::stdin())),
+        Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())),
+    };
+    run(reader)?;
+    Ok(())
+}
+
+#[test]
+fn parses_nov2493() {
+    run(Box::new(BufReader::new(
+        File::open("./example_data/Nov2493.puz").unwrap(),
+    )))
+    .unwrap();
 }
