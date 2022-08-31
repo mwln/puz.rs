@@ -9,11 +9,11 @@ A .puz file parser
 * Can return the following to stdout / file(s) / or through a module function via
   crate import:
 
-```TOML
+```toml
 [info]
-authors = Will Shortz & Someone
-size = (15, 15)
-id = something smart
+authors = "Will Shortz & Someone"
+size = [15, 15]
+id = "something smart"
 
 [grid]
 blank = [
@@ -31,7 +31,7 @@ extensions [
     # circled squares = o 
     # tile contents are given = g 
     # tile has rebus @ index n = n (`u16`)
-    "og3", // circled, contents given, rebus.options[3]
+    "og3", # circled, contents given, rebus.options[3]
     "...",
     "...",
 ]
