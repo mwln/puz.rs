@@ -11,11 +11,11 @@ const INFO_SIZE: u8 = 3;
 const NUL_CHAR: char = '\0';
 
 trait ReadNulSeperatedStrings {
-    fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String>;
+    fn read_n_nul_separated_strings(&mut self, num_strings: u16) -> Vec<String>;
 }
 
 impl ReadNulSeperatedStrings for Box<dyn BufRead> {
-    fn read_n_nul_seperated_strings(&mut self, num_strings: u16) -> Vec<String> {
+    fn read_n_nul_separated_strings(&mut self, num_strings: u16) -> Vec<String> {
         let mut strings = Vec::new();
         for _ in 1..=num_strings {
             let mut text = String::new();
@@ -178,12 +178,12 @@ fn run(mut reader: Box<dyn BufRead>) -> std::io::Result<()> {
     // TODO reimpl this
     // file.seek(SeekFrom::Start(string_offset.into()))?;
 
-    let info_strings = reader.read_n_nul_seperated_strings(INFO_SIZE.into());
-    let puzzle_clues = reader.read_n_nul_seperated_strings(num_clues);
-    let note = reader.read_n_nul_seperated_strings(1);
+    let info_strings = reader.read_n_nul_separated_strings(INFO_SIZE.into());
+    let puzzle_clues = reader.read_n_nul_separated_strings(num_clues);
+    let note = reader.read_n_nul_separated_strings(1);
 
     // cursor is now at position for GEXT
-    let gext = reader.read_n_nul_seperated_strings(1);
+    let gext = reader.read_n_nul_separated_strings(1);
     let _gext_bytes = &gext[0].as_bytes();
 
     println!("{:?}", info_strings);
