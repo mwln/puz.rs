@@ -186,47 +186,10 @@ fn run(mut reader: Box<dyn BufRead>) -> std::io::Result<()> {
     let gext = reader.read_n_nul_separated_strings(1);
     let _gext_bytes = &gext[0].as_bytes();
 
-    println!("{:?}", info_strings);
-    println!("{:?}", puzzle_clues);
-    println!("{:?}", note);
-    println!("{:?}", gext);
-    let mut till_gext = Vec::new();
-    let mut compare = String::from(" ");
-
-    while compare != "GEXT" {
-        let mut text = String::new();
-        let mut read = 1;
-        while read != 0 {
-            let mut buf = vec![0u8; 1];
-            reader.read_exact(&mut buf)?;
-            let chr = format!("{}", buf[0] as char);
-            if chr != "\0" {
-                text.push_str(&chr);
-            }
-            if text == "GEXT" {
-                break;
-            }
-            read = buf[0];
-        }
-        compare = text.to_owned().trim().to_string();
-        till_gext.push(text);
-    }
-
-    let length_of_strings = till_gext.len();
-    let mut gext = vec![0u8; board_size.into()];
-    reader.read_exact(&mut gext)?;
-
-    let mut buf_two = vec![];
-    reader.read_exact(&mut buf_two)?;
-
-    println!("{board_size:?}");
-    println!("{solution_board:?}");
-    println!("{blank_board:?}");
-    println!("{till_gext:?}");
-    println!("{length_of_strings:?}");
-    println!("{num_clues:?}");
-    println!("{board_size:?}");
-    println!("{gext:?}");
+    println!("info_strings: {:?}", info_strings);
+    println!("puzzle_clues: {:?}", puzzle_clues);
+    println!("note: {:?}", note);
+    println!("gext: {:?}", gext);
 
     Ok(())
 }
