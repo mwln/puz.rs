@@ -26,7 +26,7 @@ solution = [
     "oat",
     "bra",
 ]
-extensions [
+extensions = [
     # nothing here means puzzle is standard
     # circled squares = o 
     # tile contents are given = g 
