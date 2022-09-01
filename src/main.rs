@@ -177,7 +177,6 @@ fn run(mut reader: Box<dyn BufRead>) -> std::io::Result<()> {
 
     // TODO reimpl this
     // file.seek(SeekFrom::Start(string_offset.into()))?;
-
     let info_strings = reader.read_n_nul_separated_strings(INFO_SIZE.into());
     let puzzle_clues = reader.read_n_nul_separated_strings(num_clues);
     let note = reader.read_n_nul_separated_strings(1);

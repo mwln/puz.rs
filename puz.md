@@ -1,50 +1,63 @@
-# .puz
+## TODO ON DOCS
 
-A version of https://code.google.com/archive/p/puz/wikis/FileFormat.wiki, reformatted for nicer viewing.
+- [] add edge case scenarios to each section so they're clearly visible
+- [] cleanup sections so they're _pure_ information, rather than conversational babble.
+- [] sections should be in absolute order of how they typically appear.
+- [] sections should be in absolute order of how they typically appear.
+
+---
+
+# .puz File Documentation
+
+`.puz` is a file format for crossword puzzles.
+
+This file format comes from (AcrossLite)[https://www.litsoft.com/across/alite/download/], a piece of software developed by (litsoft)[https://www.litsoft.com] for solving and publishing crosswords.
 
 ## Table of contents:
 
-## Introduction
-
-PUZ is a file format for crossword puzzles.
+<!--toc:start-->
+- [.puz](#puz)
+ - [File Contents](#file-contents)
+ - [Header](#header-format)
+  - [Layout & State](#puzzle-layout-and-state)
+  - [Strings](#strings-section)
+  - [Checksums](#checksums)
+  - [Masked Checksums](#masked-checksums)
+  - [Locked/Scrambled Puzzles](#lockedscrambled-puzzles)
+  - [Scrambling Algorithm](#scrambling-algorithm)
+  - [Extra Sections](#extra-sections)
+   - [GRBS](#grbs)
+  - [RTBL](#rtbl)
+   - [GEXT](#gext)
+   - [RUSR](#rusr)
+  - [What remains](#what-remains)
+<!--toc:end-->
 
 ## File Contents
 
-The file is laid out like this:
-
-- a fixed-size header with information like the width and height of the puzzle
-- the puzzle solution and the current state of the cells, with size determined by the puzzle dimensions described in the previous section
-- a series of NUL-terminated variable-length strings with information like the author, copyright, the puzzle clues and a note about the puzzle.
-- optionally, a series of sections with additional information about the puzzle, like rebuses, circled squares, and timer data.
+- A fixed-size (header)[#header-format].
+- The puzzle solution and empty board state.
+- A series of NUL-terminated variable-length strings.
+- A series of sections with (additional information)[#extra-sections] about the puzzle.
 
 ## Header Format
 
-Define a short to be a little-endian two byte integer. The file header is then described in the following table.
-
-| Component  | Offset | End  | Length | Type   | Description                                                                   |
-|------------|--------|------|--------|--------|-------------------------------------------------------------------------------|
-| Checksum   | 0x00   | 0x01 | 0x2    | short  | overall file checksum                                                         |
-| File Magic | 0x02   | 0x0D | 0xC    | string | NUL-terminated constant string: 4143 524f 5353 2644 4f57 4e00 ("ACROSS&DOWN") |
-
-The following checksums are described in more detail in a separate section below.
-
-| Component             | Offset | End  | Length | Type  | Description                                            |
-|-----------------------|--------|------|--------|-------|--------------------------------------------------------|
-| CIB Checksum          | 0x0E   | 0x0F | 0x2    | short | (defined later)                                        |
-| Masked Low Checksums  | 0x10   | 0x13 | 0x4    |       | A set of checksums, XOR-masked against a magic string. |
-| Masked High Checksums | 0x14   | 0x17 | 0x4    |       | A set of checksums, XOR-masked against a magic string. |
-
-| Component          | Offset | End  | Length | Type   | Description                                                                               |
-|--------------------|--------|------|--------|--------|-------------------------------------------------------------------------------------------|
-| Version String(?)  | 0x18   | 0x1B | 0x4    | string | e.g. "1.2\0"                                                                              |
-| Reserved1C(?)      | 0x1C   | 0x1D | 0x2    | ?      | In many files, this is uninitialized memory                                               |
-| Scrambled Checksum | 0x1E   | 0x1F | 0x2    | short  | In scrambled puzzles, a checksum of the real solution (details below). Otherwise, 0x0000. |
-| Reserved20(?)      | 0x20   | 0x2B | 0xC    | ?      | In files where Reserved1C is garbage, this is garbage too.                                |
-| Width              | 0x2C   | 0x2C | 0x1    | byte   | The width of the board                                                                    |
-| Height             | 0x2D   | 0x2D | 0x1    | byte   | The height of the board                                                                   |
-| # of Clues         | 0x2E   | 0x2F | 0x2    | short  | The number of clues for this board                                                        |
-| Unknown Bitmask    | 0x30   | 0x31 | 0x2    | short  | A bitmask. Operations unknown.                                                            |
-| Scrambled Tag      | 0x32   | 0x33 | 0x2    | short  | 0 for unscrambled puzzles. Nonzero (often 4) for scrambled puzzles.                       |
+| Component  		| Offset | End  | Length | Type   | Description                                                                   		|
+|-----------------------|--------|------|--------|--------|---------------------------------------------------------------------------------------------|
+| Checksum   		| 0x00   | 0x01 | 0x2    | u16    | overall file checksum                                                         		|
+| File Magic 		| 0x02   | 0x0D | 0xC    | string | NUL-terminated constant string: 4143 524f 5353 2644 4f57 4e00 ("ACROSS&DOWN") 		|
+| CIB Checksum          | 0x0E   | 0x0F | 0x2    | u16    | (defined later)                                        					|
+| Masked Low Checksums  | 0x10   | 0x13 | 0x4    |        | A set of checksums, XOR-masked against a magic string. 					|
+| Masked High Checksums | 0x14   | 0x17 | 0x4    |        | A set of checksums, XOR-masked against a magic string. 					|
+| Version String(?)  	| 0x18   | 0x1B | 0x4    | string | e.g. "1.2\0"                                                                              	|
+| Reserved1C(?)      	| 0x1C   | 0x1D | 0x2    | ?      | In many files, this is uninitialized memory                                               	|
+| Scrambled Checksum 	| 0x1E   | 0x1F | 0x2    | u16    | In scrambled puzzles, a checksum of the real solution (details below). Otherwise, 0x0000. 	|
+| Reserved20(?)      	| 0x20   | 0x2B | 0xC    | ?      | In files where Reserved1C is garbage, this is garbage too.                                	|
+| Width              	| 0x2C   | 0x2C | 0x1    | u8     | The width of the board                                                                    	|
+| Height             	| 0x2D   | 0x2D | 0x1    | u8     | The height of the board                                                                   	|
+| # of Clues         	| 0x2E   | 0x2F | 0x2    | u16    | The number of clues for this board                                                        	|
+| Unknown Bitmask    	| 0x30   | 0x31 | 0x2    | u16    | A bitmask. Operations unknown.                                                            	|
+| Scrambled Tag      	| 0x32   | 0x33 | 0x2    | u16    | 0 for unscrambled puzzles. Nonzero (often 4) for scrambled puzzles.                       	|
 
 ### Puzzle Layout and State
 
@@ -311,3 +324,4 @@ This section contains a list of pieces of the format that we haven't yet figured
 - The various unknown parts of the header, mentioned at the beginning
 - The algorithm used for scrambling puzzles is documented in the comments, it still needs to be integrated into the main text.
 - The RUSR data section format is also described in the comments but not the main text.
+- A version of [this archive page](https://code.google.com/archive/p/puz/wikis/FileFormat.wiki), reformatted for nicer viewing. Some additional details have been added as we learn about new aspects of the file.
