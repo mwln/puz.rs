@@ -1,9 +1,10 @@
 ## TODO ON DOCS
 
-- [] add edge case scenarios to each section so they're clearly visible
-- [] cleanup sections so they're _pure_ information, rather than conversational babble.
-- [] sections should be in absolute order of how they typically appear.
-- [] sections should be in absolute order of how they typically appear.
+- [] Add edge case scenarios to each section so they're clearly visible.
+- [] Cleanup sections so they're _pure_ information, rather than conversational babble.
+- [] Sections should be in absolute order of how they typically appear.
+- [] There's no need to include pseudocode examples, as its not relevant to _parsing_ the file.
+- [] Add note to GEXT section that next byte is `board_size` again. (possible that this occurs to GRBS as well)
 
 ---
 
@@ -11,34 +12,37 @@
 
 `.puz` is a file format for crossword puzzles.
 
-This file format comes from (AcrossLite)[https://www.litsoft.com/across/alite/download/], a piece of software developed by (litsoft)[https://www.litsoft.com] for solving and publishing crosswords.
+This file format comes from [AcrossLite](https://www.litsoft.com/across/alite/download/), a free software developed by [litsoft](https://www.litsoft.com) for solving and publishing crosswords.
 
 ## Table of contents:
 
 <!--toc:start-->
+
 - [.puz](#puz)
- - [File Contents](#file-contents)
- - [Header](#header-format)
-  - [Layout & State](#puzzle-layout-and-state)
-  - [Strings](#strings-section)
-  - [Checksums](#checksums)
-  - [Masked Checksums](#masked-checksums)
-  - [Locked/Scrambled Puzzles](#lockedscrambled-puzzles)
-  - [Scrambling Algorithm](#scrambling-algorithm)
-  - [Extra Sections](#extra-sections)
-   - [GRBS](#grbs)
-  - [RTBL](#rtbl)
-   - [GEXT](#gext)
-   - [RUSR](#rusr)
-  - [What remains](#what-remains)
+- [File Contents](#file-contents)
+- [Header](#header-format)
+- [Layout & State](#puzzle-layout-and-state)
+- [Strings](#strings-section)
+- [Checksums](#checksums)
+- [Masked Checksums](#masked-checksums)
+- [Locked/Scrambled Puzzles](#lockedscrambled-puzzles)
+- [Scrambling Algorithm](#scrambling-algorithm)
+- [Extra Sections](#extra-sections)
+- [GRBS](#grbs)
+- [RTBL](#rtbl)
+- [LTIM](#ltim)
+- [GEXT](#gext)
+- [RUSR](#rusr)
+- [What remains](#what-remains)
+
 <!--toc:end-->
 
 ## File Contents
 
-- A fixed-size (header)[#header-format].
+- A fixed-size [header](#header-format).
 - The puzzle solution and empty board state.
 - A series of NUL-terminated variable-length strings.
-- A series of sections with (additional information)[#extra-sections] about the puzzle.
+- A series of sections with [additional information](#extra-sections) about the puzzle.
 
 ## Header Format
 
@@ -59,21 +63,38 @@ This file format comes from (AcrossLite)[https://www.litsoft.com/across/alite/do
 | Unknown Bitmask    	| 0x30   | 0x31 | 0x2    | u16    | A bitmask. Operations unknown.                                                            	|
 | Scrambled Tag      	| 0x32   | 0x33 | 0x2    | u16    | 0 for unscrambled puzzles. Nonzero (often 4) for scrambled puzzles.                       	|
 
-### Puzzle Layout and State
+**Edge Cases**
 
-Next come the board solution and player state. (If a player works on a puzzle and then saves their game, the cells they've filled are stored in the state. Otherwise the state is all blank cells and contains a subset of the information in the solution.)
+* It's possible that
+* It's possible that
+* It's possible that
 
-Boards are stored as a single string of ASCII, with one character per cell of the board beginning at the top-left and scanning in reading order, left to right then top to bottom. We'll use this board as a running example (where # represents a black cell, and the letters are the filled-in solution).
+## Board Layout
+
+Information required to process the layout strings correctly:
+
+```rust
+let width: 	u8  = 3;
+let height: 	u8  = 3;
+let width: 	u16 = (width * height).into();
+```
+
+Example board
 
 ```
 C A T
-# A
-# R
+# A #
+# R #
 ```
 
-At the end of the header (offset 0x34) comes the solution to the puzzle. Non-playable (ie: black) cells are denoted by '.'. So for this example, the board is stored as nine bytes: CAT..A..R
+| Component  		| Offset | End  	   | Length | Type   | Output                                                                   		|
+|-----------------------|--------|-----------------|--------|--------|---------------------------------------------------------------------------------------------|
+| Blank board       	| 0x34 	 | 0x34	+ width	   | width  | string | `"---.-..-."`
+| Solution board       	| 0x34 	 | 0x34	+ 2*width  | width  | string | `"CAT.A..R."`
 
-Next comes the player state, stored similarly. Empty cells are stored as `'-'`, so the example board before any cells had been filled in is stored as: `---..-..-`
+**Edge Cases**
+
+* `.puz` file was saved to disk as player was solving via AcrossLite - meaning the blank board won't be blank
 
 ### Strings Section
 
@@ -158,11 +179,9 @@ The checksumming routine used in PUZ is a variant of CRC-16. To checksum a regio
 ```c
 unsigned short cksum_region(unsigned char *base, int len, unsigned short cksum) {
     int i;
-
     for (i = 0; i < len; i++) {
         if (cksum & 0x0001) cksum = (cksum >> 1) + 0x8000; else cksum = cksum >> 1; cksum += *(base+i);
     }
-
     return cksum;
 }
 ```
@@ -289,7 +308,8 @@ For example, in a puzzle which had four rebus squares containing "HEART", "DIAMO
 `" 0:HEART; 1:DIAMOND;17:CLUB;23:SPADE;"`
 
 Note that the keys need not be consecutive numbers, but in official puzzles they always seem to be in ascending order. An individual key may appear multiple times in the GRBS board if there are multiple rebus squares with the same solution.
-LTIM
+
+### LTIM
 
 The LTIM data section stores two pieces of information: how much time the solver has used and whether the timer is running or stopped. The two pieces are both stored as ascii strings of numbers, separated by a comma. First comes the number of seconds elapsed, then "0" if the timer is running and "1" if it is stopped. For example, if the timer were stopped at 42 seconds when the puzzle was saved, the LTIM data section would contain the ascii string:
 
