@@ -8,38 +8,125 @@ use std::{
     io::{BufRead, BufReader, Read}
 };
 
-trait InterpretBytes {
-    fn interpret_bytes(&mut self, reader: Box<dyn BufRead>);
+const NUL_CHAR: char = '\0';
+
+trait ReadByteBuffers {
+    fn read_byte_buffers(&mut self, reader: impl Read);
 }
 
-impl InterpretBytes for Vec<(String, Vec<u8>)> {
-    fn interpret_bytes(&mut self, mut reader: Box<dyn BufRead>) {
-        for elem in self.iter_mut() {
-            reader.read_exact(&mut elem.1).ok();
+trait ReadNulSeperatedStrings {
+    fn read_n_nul_separated_strings(&mut self, num_strings: u16) -> Vec<String>;
+}
+
+struct Component {
+    name: String,
+    buffer: Vec<u8>,
+}
+
+impl Component {
+    fn new(name: String, length: u16) -> Component {
+        Component {
+            name,
+            buffer: vec![0u8; length as usize],
         }
     }
 }
 
+struct Layout {
+    bytes: Vec<Component>,
+    blank: String,
+    solution: String,
+}
+
+impl Layout {
+    fn new(board_size: u16) -> Layout {
+        Layout {
+            bytes: Self::_bytes(board_size),
+            blank: String::from(""),
+            solution: String::from(""),
+        }
+    }
+
+    fn _bytes(board_size: u16) -> Vec<Component> {
+        return vec![
+            Component::new(String::from("blank_board"), board_size),
+            Component::new(String::from("solution_board"), board_size),
+        ]
+    }
+}
+
 struct Header {
-    bytes: Vec<(String, Vec<u8>)>,
+    bytes: Vec<Component>,
     board_size: u16,
     num_clues: u16,
 }
 
-struct Layout {
-    bytes: Vec<(String, Vec<u8>)>,
-    blank_board: String,
-    solution_board: String,
+impl Header {
+    fn new() -> Header {
+        Header {
+            bytes: Self::_bytes(),
+            board_size: 0,
+            num_clues: 0,
+        }
+    }
+
+    fn _bytes() -> Vec<Component> {
+        return vec![
+            Component::new(String::from("checksum"), 0x02),
+            Component::new(String::from("file_magic"), 0x0C),
+            Component::new(String::from("cib_checksum"), 0x02),
+            Component::new(String::from("masked_low_checksum"),0x04),
+            Component::new(String::from("masked_high_checksum"),0x04),
+            Component::new(String::from("version"),0x04),
+            Component::new(String::from("reserved_1c"),0x02),
+            Component::new(String::from("scrambled_checksum"),0x02),
+            Component::new(String::from("reserved_20"),0x0C),
+            Component::new(String::from("width"),0x01),
+            Component::new(String::from("height"),0x01),
+            Component::new(String::from("num_clues"),0x02),
+            Component::new(String::from("unknown_bitmask"),0x02),
+            Component::new(String::from("scrambled_tag"),0x02),
+        ];
+    }
 }
 
-struct Strings {}
+struct StringSection {
+    info: Vec<String>,
+    clues: Vec<String>,
+    note: Vec<String>,
+}
 
-struct Extras {}
+impl StringSection {
+    fn new(num_clues: u16, mut reader: Box<dyn BufRead>) -> StringSection {
+        StringSection {
+            info: reader.read_n_nul_separated_strings(3),
+            clues: reader.read_n_nul_separated_strings(num_clues),
+            note: reader.read_n_nul_separated_strings(1),
+        }
+    }
+}
 
-const NUL_CHAR: char = '\0';
+impl ReadByteBuffers for Header {
+    fn read_byte_buffers(&mut self, mut reader: impl Read) {
+        for component in self.bytes.iter_mut() {
+            reader.read_exact(&mut component.buffer).ok();
+        }        
+        let width = self.bytes[9].buffer.get(0).unwrap();
+        let height = self.bytes[10].buffer.get(0).unwrap();
+        let num_clues = LittleEndian::read_u16(&self.bytes[11].buffer);
+        self.board_size = (width * height).into();
+        self.num_clues = num_clues;        
+    }
+}
 
-trait ReadNulSeperatedStrings {
-    fn read_n_nul_separated_strings(&mut self, num_strings: u16) -> Vec<String>;
+impl ReadByteBuffers for Layout {
+    fn read_byte_buffers(&mut self, mut reader: impl Read) {
+        for component in self.bytes.iter_mut() {
+            reader.read_exact(&mut component.buffer).ok();
+        }        
+        self.blank = str::from_utf8(&self.bytes[0].buffer).unwrap().to_owned();
+        self.solution = str::from_utf8(&self.bytes[1].buffer).unwrap().to_owned();
+    }
 }
 
 impl ReadNulSeperatedStrings for Box<dyn BufRead> {
@@ -66,118 +153,27 @@ impl ReadNulSeperatedStrings for Box<dyn BufRead> {
 
 pub fn read() -> std::io::Result<()> {
     let input = env::args().nth(1);
-    let reader: Box<dyn BufRead> = match input {
+    let mut reader: Box<dyn BufRead> = match input {
         None => Box::new(BufReader::new(io::stdin())),
         Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())),
     };
     
-    let header = read_header(reader);
+    let mut header = Header::new();
+    header.read_byte_buffers(&mut reader);
 
-    // read_layout(reader, header.board_size)?; 
-    // read_strings(reader)?;
-    // read_extras(reader)?;
+    let mut layout = Layout::new(header.board_size);
+    layout.read_byte_buffers(&mut reader);
+
+    let mut strings = StringSection::new(header.num_clues, reader);
+
+    println!("board_size: {:?}", header.board_size);
+    println!("num_clues: {:?}", header.num_clues);
+    println!("blank board: {:?}", layout.solution);
+    println!("solution board: {:?}", layout.blank);
+    println!("strings info: {:?}", strings.info);
+    println!("strings info: {:?}", strings.clues);
+    println!("strings info: {:?}", strings.note);
 
     Ok(())
-}
-
-fn read_header(mut reader: Box<dyn BufRead>) -> Header {  
-    let mut bytes = vec![
-        (String::from("checksum"), vec![0u8; 0x02]),
-        (String::from("file_magic"), vec![0u8; 0x0C]),
-        (String::from("cib_checksum"), vec![0u8; 0x02]),
-        (String::from("masked_low_checksum"),vec![0u8; 0x04]),
-        (String::from("masked_high_checksum"),vec![0u8; 0x04]),
-        (String::from("version"),vec![0u8; 0x04]),
-        (String::from("reserved_1c"),vec![0u8; 0x02]),
-        (String::from("scrambled_checksum"),vec![0u8; 0x02]),
-        (String::from("reserved_20"),vec![0u8; 0x0C]),
-        (String::from("width"),vec![0u8; 0x01]),
-        (String::from("height"),vec![0u8; 0x01]),
-        (String::from("num_clues"),vec![0u8; 0x02]),
-        (String::from("unknown_bitmask"),vec![0u8; 0x02]),
-        (String::from("scrambled_tag"),vec![0u8; 0x02]),
-    ];
-
-    bytes.interpret_bytes(reader);
-    
-    // hacky way of testing width and height for confirmation
-
-    let board_width = bytes[9].1.get(0).unwrap();
-    let board_height = bytes[10].1.get(0).unwrap();
-    let num_clues: u16 = LittleEndian::read_u16(&bytes[11].1);
-    let board_size: u16 = (board_width * board_height).into();
-
-    // match k {
-    //     &mut "width" => board_width = *buffer.get(0).unwrap(),
-    //     &mut "height" => board_height = *buffer.get(0).unwrap(),
-    //     &mut "num_clues" => num_clues = LittleEndian::read_u16(&buffer),
-    //     _ => (),
-    // }
-
-    println!("board_size: {:?}", board_size);
-    println!("num_clues: {:?}", num_clues);
-    
-    Header {
-        bytes,
-        board_size,
-        num_clues,
-    }
-}
-
-// fn read_layout(mut reader: Box<dyn BufRead>, u16: board_size) -> std::io::Result<()> {
-//     let blank_board = "";
-//     let solution_board = "";
-    
-    // let mut bytes = [ 
-    //     ("blank_board", vec![0u8; board_size.into()]),
-    //     ("solution_board", vec![0u8; board_size.into()]),
-    // ]
-// } 
-
-// fn run2(mut reader: Box<dyn BufRead>) -> std::io::Result<()> { 
-//     // TODO derive properties in a created struct
-//     let mut board_width: u8 = 0;
-//     let mut board_height: u8 = 0;
-//     let mut num_clues = 0;
-//     let mut solution_board = "";
-//     let mut blank_board = "";
-
-//     let board_size: u16 = (board_width * board_height).into();
-
-//     for bytes in board_layout.iter_mut() {
-//         reader.read_exact(&mut bytes.values).ok();
-//         match bytes.id {
-//             "solution" => solution_board = str::from_utf8(&bytes.values).unwrap(),
-//             "blank" => blank_board = str::from_utf8(&bytes.values).unwrap(),
-//             _ => (),
-//         }
-//     }
-
-//     let info_strings = reader.read_n_nul_separated_strings(3);
-//     let puzzle_clues = reader.read_n_nul_separated_strings(num_clues);
-//     let note = reader.read_n_nul_separated_strings(1);
-
-//     let gext = reader.read_n_nul_separated_strings(1);
-//     let _gext_bytes = &gext[0].as_bytes();
-
-//     println!("solution: {:?}", solution_board);
-//     println!("blank: {:?}", blank_board);
-//     println!("info_strings: {:?}", info_strings);
-//     println!("info_strings: {:?}", info_strings);
-//     println!("puzzle_clues: {:?}", puzzle_clues);
-//     println!("note: {:?}", note);
-//     println!("gext: {:?}", gext);
-
-//     Ok(())
-// }
-
-// fn interpret_from_reader()
-
-#[test]
-fn parses_nov2493() {
-    run(Box::new(BufReader::new(
-        File::open("./example_data/Nov2493.puz").unwrap(),
-    )))
-    .unwrap();
 }
 
