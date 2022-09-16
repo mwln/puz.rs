@@ -1,5 +1,4 @@
 use byteorder::{ByteOrder, LittleEndian};
-use core::num;
 use std::env;
 use std::io;
 use std::str;
@@ -90,22 +89,6 @@ impl Header {
     }
 }
 
-struct StringSection {
-    info: Vec<String>,
-    clues: Vec<String>,
-    note: Vec<String>,
-}
-
-impl StringSection {
-    fn new(num_clues: u16, mut reader: Box<dyn BufRead>) -> StringSection {
-        StringSection {
-            info: reader.read_n_nul_separated_strings(3),
-            clues: reader.read_n_nul_separated_strings(num_clues),
-            note: reader.read_n_nul_separated_strings(1),
-        }
-    }
-}
-
 impl ReadByteBuffers for Header {
     fn read_byte_buffers(&mut self, mut reader: impl Read) {
         for component in self.bytes.iter_mut() {
@@ -164,15 +147,21 @@ pub fn read() -> std::io::Result<()> {
     let mut layout = Layout::new(header.board_size);
     layout.read_byte_buffers(&mut reader);
 
-    let mut strings = StringSection::new(header.num_clues, reader);
+    let puzzle_details = reader.read_n_nul_separated_strings(3);
+    let clues = reader.read_n_nul_separated_strings(header.num_clues);
+    let side_note = reader.read_n_nul_separated_strings(1);
+
+    let mut extras_bytes = Vec::new();
+    reader.read_to_end(&mut extras_bytes).ok();
 
     println!("board_size: {:?}", header.board_size);
     println!("num_clues: {:?}", header.num_clues);
     println!("blank board: {:?}", layout.solution);
     println!("solution board: {:?}", layout.blank);
-    println!("strings info: {:?}", strings.info);
-    println!("strings info: {:?}", strings.clues);
-    println!("strings info: {:?}", strings.note);
+    println!("strings info: {:?}", puzzle_details);
+    println!("strings info: {:?}", clues);
+    println!("strings info: {:?}", side_note);
+    println!("extras_strings: {:?}", extras_bytes);
 
     Ok(())
 }
