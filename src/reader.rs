@@ -31,10 +31,10 @@ impl Component {
     }
 }
 
-struct Layout {
+pub struct Layout {
     bytes: Vec<Component>,
-    blank: String,
-    solution: String,
+    pub blank: String,
+    pub solution: String,
 }
 
 impl Layout {
