@@ -1,9 +1,17 @@
 [package]
-name = "noclue"
+name = "puz"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
-byteorder = "1.3.1"
+nom = "7.1.3"
+wasm-bindgen-futures = "0.4.37"
+wasm-bindgen = "0.2.87"
+gloo-file = "0.3.0"
+gloo-console = "0.3.0"
+js-sys = "0.3.64"
+web-sys = { version = "0.3.64", features = ['File', 'FileReader', 'Blob', 'console'] }
+byteorder = "1.4.3"

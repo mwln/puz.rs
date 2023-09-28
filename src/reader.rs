@@ -4,7 +4,7 @@ use std::io;
 use std::str;
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read}
+    io::{BufRead, BufReader, Read},
 };
 
 const NUL_CHAR: char = '\0';
@@ -50,7 +50,7 @@ impl Layout {
         return vec![
             Component::new(String::from("blank_board"), board_size),
             Component::new(String::from("solution_board"), board_size),
-        ]
+        ];
     }
 }
 
@@ -74,17 +74,17 @@ impl Header {
             Component::new(String::from("checksum"), 0x02),
             Component::new(String::from("file_magic"), 0x0C),
             Component::new(String::from("cib_checksum"), 0x02),
-            Component::new(String::from("masked_low_checksum"),0x04),
-            Component::new(String::from("masked_high_checksum"),0x04),
-            Component::new(String::from("version"),0x04),
-            Component::new(String::from("reserved_1c"),0x02),
-            Component::new(String::from("scrambled_checksum"),0x02),
-            Component::new(String::from("reserved_20"),0x0C),
-            Component::new(String::from("width"),0x01),
-            Component::new(String::from("height"),0x01),
-            Component::new(String::from("num_clues"),0x02),
-            Component::new(String::from("unknown_bitmask"),0x02),
-            Component::new(String::from("scrambled_tag"),0x02),
+            Component::new(String::from("masked_low_checksum"), 0x04),
+            Component::new(String::from("masked_high_checksum"), 0x04),
+            Component::new(String::from("version"), 0x04),
+            Component::new(String::from("reserved_1c"), 0x02),
+            Component::new(String::from("scrambled_checksum"), 0x02),
+            Component::new(String::from("reserved_20"), 0x0C),
+            Component::new(String::from("width"), 0x01),
+            Component::new(String::from("height"), 0x01),
+            Component::new(String::from("num_clues"), 0x02),
+            Component::new(String::from("unknown_bitmask"), 0x02),
+            Component::new(String::from("scrambled_tag"), 0x02),
         ];
     }
 }
@@ -93,12 +93,12 @@ impl ReadByteBuffers for Header {
     fn read_byte_buffers(&mut self, mut reader: impl Read) {
         for component in self.bytes.iter_mut() {
             reader.read_exact(&mut component.buffer).ok();
-        }        
+        }
         let width = self.bytes[9].buffer.get(0).unwrap();
         let height = self.bytes[10].buffer.get(0).unwrap();
         let num_clues = LittleEndian::read_u16(&self.bytes[11].buffer);
         self.board_size = (width * height).into();
-        self.num_clues = num_clues;        
+        self.num_clues = num_clues;
     }
 }
 
@@ -106,7 +106,7 @@ impl ReadByteBuffers for Layout {
     fn read_byte_buffers(&mut self, mut reader: impl Read) {
         for component in self.bytes.iter_mut() {
             reader.read_exact(&mut component.buffer).ok();
-        }        
+        }
         self.blank = str::from_utf8(&self.bytes[0].buffer).unwrap().to_owned();
         self.solution = str::from_utf8(&self.bytes[1].buffer).unwrap().to_owned();
     }
@@ -140,7 +140,7 @@ pub fn read() -> std::io::Result<()> {
         None => Box::new(BufReader::new(io::stdin())),
         Some(filename) => Box::new(BufReader::new(File::open(filename).unwrap())),
     };
-    
+
     let mut header = Header::new();
     header.read_byte_buffers(&mut reader);
 
@@ -165,4 +165,3 @@ pub fn read() -> std::io::Result<()> {
 
     Ok(())
 }
-

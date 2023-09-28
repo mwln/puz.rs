@@ -1,5 +1,4 @@
 use std::fmt;
-use crate::reader::Layout;
 
 pub struct GameBoard(Vec<String>);
 pub struct Clues(Vec<String>);
@@ -51,26 +50,23 @@ impl GameBoard {
             } else {
                 false
             }
-        }
+        };
     }
 
     fn cell_needs_across_number(&self, x: i32, y: i32) -> bool {
-        self.is_black_cell(x - 1, y)
-            && !self.is_black_cell(x+1, y)
-            && !self.is_black_cell(x, y)
+        self.is_black_cell(x - 1, y) && !self.is_black_cell(x + 1, y) && !self.is_black_cell(x, y)
     }
 
     fn cell_needs_down_number(&self, x: i32, y: i32) -> bool {
-        self.is_black_cell(x, y-1)
-            && !self.is_black_cell(x, y+1)
-            && !self.is_black_cell(x, y)
+        self.is_black_cell(x, y - 1) && !self.is_black_cell(x, y + 1) && !self.is_black_cell(x, y)
     }
 }
 
 pub fn assign_clues(board: GameBoard) -> (Vec<Vec<i32>>, Vec<i32>, Vec<i32>) {
     let mut across_numbers: Vec<i32> = vec![];
     let mut down_numbers: Vec<i32> = vec![];
-    let mut cell_numbers: Vec<Vec<i32>> = vec![vec![0i32; board.width() as usize]; board.height() as usize];
+    let mut cell_numbers: Vec<Vec<i32>> =
+        vec![vec![0i32; board.width() as usize]; board.height() as usize];
     let mut clue_number = 1;
     for i in 0..board.height() {
         for j in 0..board.width() {
@@ -87,7 +83,7 @@ pub fn assign_clues(board: GameBoard) -> (Vec<Vec<i32>>, Vec<i32>, Vec<i32>) {
                 assigned_clue = true;
             }
             if assigned_clue {
-                 clue_number += 1;
+                clue_number += 1;
             }
         }
     }
