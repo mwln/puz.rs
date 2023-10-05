@@ -95,12 +95,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "puz"
-version = "0.1.0"
+name = "puz_rs"
+version = "0.1.2"
 dependencies = [
  "byteorder",
  "gloo-file",
- "js-sys",
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
