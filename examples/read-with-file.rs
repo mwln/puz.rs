@@ -1,4 +1,4 @@
-use puz::parse_puz;
+use puz_rs::parse_puz;
 use std::{
     fs::File,
     io::{ErrorKind, Write},
