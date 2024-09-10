@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{ErrorKind, Write},
 };
+
 fn main() -> std::io::Result<()> {
     let path = "examples/data/rebus.puz";
     let file = match File::open(&path) {

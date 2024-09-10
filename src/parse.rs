@@ -1,5 +1,4 @@
 use std::io::{BufReader, Read};
-use wasm_bindgen::prelude::*;
 
 use byteorder::{ByteOrder, LittleEndian};
 use serde_json::{json, Value};
@@ -23,17 +22,6 @@ const EXTRAS: [(&str, ExtraKind); 3] = [
     ("RTBL", ExtraKind::RTBL),
     ("GEXT", ExtraKind::GEXT),
 ];
-
-#[wasm_bindgen]
-pub async fn read_file(file: web_sys::File) -> String {
-    let data = gloo_file::futures::read_as_bytes(&file.into())
-        .await
-        .expect_throw("Error while reading the file");
-    return match parse_puz(data.as_slice()) {
-        Ok(parsed) => parsed.to_string(),
-        Err(e) => e.to_string(),
-    };
-}
 
 pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
     let mut reader = BufReader::new(buffer);
