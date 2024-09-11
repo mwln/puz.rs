@@ -38,5 +38,7 @@ fn main() -> color_eyre::Result<()> {
 
     output_file.write_all(parsed.to_string().as_bytes())?;
 
+    play::start()?;
+
     Ok(())
 }
