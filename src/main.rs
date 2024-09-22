@@ -5,7 +5,7 @@ mod play;
 
 use clap::Parser;
 use color_eyre::eyre;
-use parse::parse_puz;
+use parse::{convert, parse_puz};
 
 /// Parse or play crossword puzzles
 #[derive(Parser, Debug)]
@@ -26,7 +26,8 @@ fn main() -> color_eyre::Result<()> {
     }
 
     let file = File::open(file_path)?;
-    let parsed = parse_puz(file)?;
+    let puzzle = parse_puz(file)?;
+    let parsed_json = convert(puzzle)?;
 
     let file_stem = Path::new(file_path)
         .file_stem()
@@ -36,7 +37,7 @@ fn main() -> color_eyre::Result<()> {
     let output_file_name = format!("examples/{}_out.json", file_stem);
     let mut output_file = File::create(output_file_name)?;
 
-    output_file.write_all(parsed.to_string().as_bytes())?;
+    output_file.write_all(parsed_json.to_string().as_bytes())?;
 
     play::start()?;
 

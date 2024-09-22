@@ -1,4 +1,4 @@
-use std::io::{BufReader, Read};
+use std::io::{BufRead, BufReader, Read};
 
 use byteorder::{ByteOrder, LittleEndian};
 use serde_json::{json, Value};
@@ -9,7 +9,7 @@ type PuzzleBoard = Vec<Vec<char>>;
 type Clues = Vec<Vec<Vec<String>>>;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Puzzle {
+pub struct Puzzle {
     info: PuzzleInfo,
     size: PuzzleSize,
     boards: PuzzleBoards,
@@ -112,21 +112,21 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Puzzle> {
                     .chunks(width)
                     .map(|chunk| chunk.to_vec())
                     .collect(),
-            )
+            );
         }
     }
 
-    let title = read_string_till_nul(&mut reader);
-    let author = read_string_till_nul(&mut reader);
-    let copyright = read_string_till_nul(&mut reader);
+    let title = read_string_till_nul(&mut reader)?;
+    let author = read_string_till_nul(&mut reader)?;
+    let copyright = read_string_till_nul(&mut reader)?;
 
     let num_clues = header_data[2];
     let mut clue_data: Vec<String> = vec![];
     for _ in 1..=num_clues {
-        clue_data.push(read_string_till_nul(&mut reader))
+        clue_data.push(read_string_till_nul(&mut reader)?);
     }
 
-    let note = read_string_till_nul(&mut reader);
+    let note = read_string_till_nul(&mut reader)?;
 
     let mut extras_data = Vec::new();
     reader.read_to_end(&mut extras_data)?;
@@ -202,7 +202,7 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Puzzle> {
     })
 }
 
-fn convert(p: Puzzle) -> std::io::Result<Value> {
+pub fn convert(p: Puzzle) -> std::io::Result<Value> {
     Ok(json!({
         "info": {
             "title": p.info.title ,
@@ -269,18 +269,64 @@ fn cell_needs_down_clue(board: &Vec<Vec<char>>, row: usize, col: usize) -> bool 
     false
 }
 
-fn read_string_till_nul(reader: &mut BufReader<impl Read>) -> String {
-    let mut text = String::new();
-    loop {
-        let mut buf = [0u8; 1];
-        if reader.read_exact(&mut buf).is_err() {
-            break;
-        }
-        let current_char = buf[0] as char;
-        if current_char == '\0' {
-            break;
-        }
-        text.push(current_char);
+fn read_string_till_nul<R: Read>(reader: &mut BufReader<R>) -> std::io::Result<String> {
+    let mut text = Vec::new();
+    reader.read_until(0, &mut text)?;
+    text.pop();
+    String::from_utf8(text).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_clue<F>(clue_func: F, board: &Vec<Vec<char>>, row: usize, col: usize, expected: bool)
+    where
+        F: Fn(&Vec<Vec<char>>, usize, usize) -> bool,
+    {
+        let result = clue_func(board, row, col);
+        let func_name = std::any::type_name::<F>();
+        let clue_type = if func_name.contains("across") {
+            "across"
+        } else {
+            "down"
+        };
+        assert_eq!(
+            result, expected,
+            "cell_needs_{}_clue at ({}, {}) should be {}",
+            clue_type, row, col, expected
+        );
     }
-    text
+
+    #[test]
+    fn test_cell_needs_across_clue() {
+        let board = vec![
+            vec!['.', '-', '-', '.'],
+            vec!['-', '-', '-', '-'],
+            vec!['.', '.', '-', '-'],
+        ];
+
+        assert_clue(cell_needs_across_clue, &board, 0, 1, true);
+        assert_clue(cell_needs_across_clue, &board, 0, 2, false);
+        assert_clue(cell_needs_across_clue, &board, 1, 0, true);
+        assert_clue(cell_needs_across_clue, &board, 1, 1, false);
+        assert_clue(cell_needs_across_clue, &board, 2, 2, true);
+    }
+
+    #[test]
+    fn test_cell_needs_down_clue() {
+        let board = vec![
+            vec!['.', '-', '.', '-'],
+            vec!['-', '-', '.', '-'],
+            vec!['-', '.', '-', '-'],
+        ];
+
+        assert_clue(cell_needs_down_clue, &board, 0, 1, true);
+        assert_clue(cell_needs_down_clue, &board, 1, 0, true);
+        assert_clue(cell_needs_down_clue, &board, 0, 3, true);
+        assert_clue(cell_needs_down_clue, &board, 1, 1, false);
+        assert_clue(cell_needs_down_clue, &board, 1, 3, false);
+        assert_clue(cell_needs_down_clue, &board, 2, 2, false);
+        assert_clue(cell_needs_down_clue, &board, 2, 3, false);
+    }
 }
