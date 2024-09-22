@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use ratatui::{
     crossterm::event::{self, Event, KeyCode},
-    widgets::Paragraph,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Style},
+    text::Text,
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
@@ -65,11 +68,11 @@ impl PuzzleGrid {
     fn height(&self) -> usize {
         self.0.get(0).map_or(0, |row| row.len())
     }
-    fn get(&self, row: usize, col: usize) -> Option<&char> {
+    fn _get(&self, row: usize, col: usize) -> Option<&char> {
         self.0.get(row).and_then(|r| r.get(col))
     }
 
-    fn set(&mut self, row: usize, col: usize, value: char) -> Result<(), &'static str> {
+    fn _set(&mut self, row: usize, col: usize, value: char) -> Result<(), &'static str> {
         match self.0.get_mut(row).and_then(|r| r.get_mut(col)) {
             Some(cell) => {
                 *cell = value;
@@ -82,6 +85,7 @@ impl PuzzleGrid {
 
 #[derive(Debug)]
 struct Model {
+    mode: PuzzleMode,
     selected_cell: Coordinate,
     running_state: RunningState,
     grid: PuzzleGrid,
@@ -93,6 +97,7 @@ impl Model {
             selected_cell: Coordinate::new(0, 0),
             running_state: RunningState::default(),
             grid: PuzzleGrid::new(5, 5, 'A'),
+            mode: PuzzleMode::default(),
         }
     }
 }
@@ -102,6 +107,13 @@ enum RunningState {
     #[default]
     Running,
     Done,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+enum PuzzleMode {
+    #[default]
+    Navigate,
+    Edit,
 }
 
 #[derive(PartialEq)]
@@ -133,19 +145,39 @@ pub fn start() -> color_eyre::Result<()> {
 }
 
 fn view(model: &mut Model, frame: &mut Frame) {
-    frame.render_widget(
-        Paragraph::new(format!(
-            "Selected Coordinate: {} {}",
-            model.selected_cell.x, model.selected_cell.y
-        )),
-        frame.area(),
-    );
+    let mode_text = match model.mode {
+        PuzzleMode::Navigate => "MOVE",
+        PuzzleMode::Edit => "EDIT",
+    };
+
+    let layout_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(3),
+        ])
+        .split(frame.area());
+
+    let title_block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default());
+
+    let title = Paragraph::new(Text::styled(
+        "puz.rs - A terminal based crossword solver, in rust.",
+        Style::default().fg(ratatui::style::Color::Green),
+    ))
+    .block(title_block);
+
+    let footer_block = Block::default().style(Style::default().bg(ratatui::style::Color::Gray));
+
+    let footer = Paragraph::new(Text::styled(mode_text, Style::default().fg(Color::Black)))
+        .block(footer_block);
+
+    frame.render_widget(title, layout_chunks[0]);
+    frame.render_widget(footer, layout_chunks[2]);
 }
 
-/// Convert Event to Message
-///
-/// We don't need to pass in a `model` to this function in this example
-/// but you might need it as your project evolves
 fn handle_event(_: &Model) -> color_eyre::Result<Option<Message>> {
     if event::poll(Duration::from_millis(250))? {
         if let Event::Key(key) = event::read()? {

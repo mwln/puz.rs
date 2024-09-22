@@ -3,6 +3,47 @@ use std::io::{BufReader, Read};
 use byteorder::{ByteOrder, LittleEndian};
 use serde_json::{json, Value};
 
+use serde::{Deserialize, Serialize};
+
+type PuzzleBoard = Vec<Vec<char>>;
+type Clues = Vec<Vec<Vec<String>>>;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Puzzle {
+    info: PuzzleInfo,
+    size: PuzzleSize,
+    boards: PuzzleBoards,
+    clues: Clues,
+    extras: Extras,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PuzzleInfo {
+    title: String,
+    author: String,
+    copyright: String,
+    note: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PuzzleSize {
+    width: usize,
+    height: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PuzzleBoards {
+    blank: PuzzleBoard,
+    solution: PuzzleBoard,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Extras {
+    grbs: Vec<Vec<u8>>,
+    gext: Vec<Vec<u8>>,
+    rtbl: String,
+}
+
 enum PieceKind {
     Number,
     Natural,
@@ -23,7 +64,7 @@ const EXTRAS: [(&str, ExtraKind); 3] = [
     ("GEXT", ExtraKind::GEXT),
 ];
 
-pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
+pub fn parse_puz(buffer: impl Read) -> std::io::Result<Puzzle> {
     let mut reader = BufReader::new(buffer);
 
     let header_offsets: Vec<(usize, Option<PieceKind>, &str)> = vec![
@@ -59,8 +100,8 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
     let height = header_data[1];
     let board_size = width * height;
 
-    let mut boards = Vec::new();
     // [solution, blank]
+    let mut boards = Vec::new();
     for _ in 0..2 {
         let mut buffer = vec![0; board_size];
         reader.read_exact(&mut buffer)?;
@@ -69,17 +110,15 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
                 s.chars()
                     .collect::<Vec<char>>()
                     .chunks(width)
-                    .map(|chunk| chunk.iter().collect::<String>())
-                    .collect::<Vec<String>>(),
+                    .map(|chunk| chunk.to_vec())
+                    .collect(),
             )
         }
     }
 
-    // [title, author, copyright, note]
-    let mut info_data = Vec::new();
-    for _ in 0..3 {
-        info_data.push(read_string_till_nul(&mut reader));
-    }
+    let title = read_string_till_nul(&mut reader);
+    let author = read_string_till_nul(&mut reader);
+    let copyright = read_string_till_nul(&mut reader);
 
     let num_clues = header_data[2];
     let mut clue_data: Vec<String> = vec![];
@@ -87,8 +126,7 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
         clue_data.push(read_string_till_nul(&mut reader))
     }
 
-    // add note after clues
-    info_data.push(read_string_till_nul(&mut reader));
+    let note = read_string_till_nul(&mut reader);
 
     let mut extras_data = Vec::new();
     reader.read_to_end(&mut extras_data)?;
@@ -134,8 +172,7 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
         }
     }
 
-    let mut clues: Vec<Vec<Vec<String>>> =
-        vec![vec![vec![String::new(), String::new()]; width]; height];
+    let mut clues: Clues = vec![vec![vec![String::new(), String::new()]; width]; height];
 
     for (row, cols) in clues.iter_mut().enumerate() {
         for (col, clue_tuple) in cols.iter_mut().enumerate() {
@@ -148,41 +185,59 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Value> {
         }
     }
 
-    let puz = json!({
-        "info": {
-            "title": info_data[0],
-            "author": info_data[1],
-            "copyright": info_data[2],
-            "note": info_data[3],
+    Ok(Puzzle {
+        info: PuzzleInfo {
+            title,
+            author,
+            copyright,
+            note,
         },
-        "size": {
-            "width": width,
-            "height": height,
+        size: PuzzleSize { width, height },
+        boards: PuzzleBoards {
+            solution: std::mem::take(&mut boards[0]),
+            blank: std::mem::take(&mut boards[1]),
         },
-        "boards": {
-            "blank": boards[1],
-            "solution": boards[0],
-        },
-        "clues": clues,
-        "extras": {
-            "grbs": grbs,
-            "gext": gext,
-            "rtbl": rtbl,
-        }
-    });
-
-    Ok(puz)
+        clues,
+        extras: Extras { rtbl, grbs, gext },
+    })
 }
 
-fn cell_needs_across_clue(board: &Vec<String>, row: usize, col: usize) -> bool {
-    if let Some(this_square) = &board[row].chars().nth(col) {
-        if this_square == &FREE_SQUARE {
-            if let Some(next_square) = &board[row].chars().nth(col + 1) {
-                if next_square == &FREE_SQUARE {
-                    if col == 0 {
-                        return true;
-                    } else if let Some(previous_square) = &board[row].chars().nth(col - 1) {
-                        return previous_square == &TAKEN_SQUARE;
+fn convert(p: Puzzle) -> std::io::Result<Value> {
+    Ok(json!({
+        "info": {
+            "title": p.info.title ,
+            "author": p.info.author,
+            "copyright": p.info.copyright,
+            "note": p.info.note,
+        },
+        "size": {
+            "width": p.size.width,
+            "height": p.size.height,
+        },
+        "boards": {
+            "blank": p.boards.blank,
+            "solution": p.boards.solution,
+        },
+        "clues": p.clues,
+        "extras": {
+            "grbs": p.extras.grbs,
+            "gext": p.extras.gext,
+            "rtbl": p.extras.rtbl,
+        }
+    }))
+}
+
+fn cell_needs_across_clue(board: &Vec<Vec<char>>, row: usize, col: usize) -> bool {
+    if let Some(this_row) = board.get(row) {
+        if let Some(this_square) = this_row.get(col) {
+            if this_square == &FREE_SQUARE {
+                if let Some(next_square) = this_row.get(col + 1) {
+                    if next_square == &FREE_SQUARE {
+                        if col == 0 {
+                            return true;
+                        } else if let Some(previous_square) = this_row.get(col - 1) {
+                            return previous_square == &TAKEN_SQUARE;
+                        }
                     }
                 }
             }
@@ -191,16 +246,20 @@ fn cell_needs_across_clue(board: &Vec<String>, row: usize, col: usize) -> bool {
     false
 }
 
-fn cell_needs_down_clue(board: &Vec<String>, row: usize, col: usize) -> bool {
-    if let Some(this_square) = &board[row].chars().nth(col) {
-        if this_square == &FREE_SQUARE {
-            if let Some(next_row) = board.get(row + 1) {
-                if let Some(next_square) = &next_row.chars().nth(col) {
-                    if next_square == &FREE_SQUARE {
-                        if row == 0 {
-                            return true;
-                        } else if let Some(previous_square) = &board[row - 1].chars().nth(col) {
-                            return previous_square == &TAKEN_SQUARE;
+fn cell_needs_down_clue(board: &Vec<Vec<char>>, row: usize, col: usize) -> bool {
+    if let Some(this_row) = board.get(row) {
+        if let Some(this_square) = this_row.get(col) {
+            if this_square == &FREE_SQUARE {
+                if let Some(next_row) = board.get(row + 1) {
+                    if let Some(next_square) = next_row.get(col) {
+                        if next_square == &FREE_SQUARE {
+                            if row == 0 {
+                                return true;
+                            } else if let Some(previous_row) = board.get(row - 1) {
+                                if let Some(previous_square) = previous_row.get(col) {
+                                    return previous_square == &TAKEN_SQUARE;
+                                }
+                            }
                         }
                     }
                 }

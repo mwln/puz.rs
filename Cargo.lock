@@ -497,6 +497,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "ratatui",
+ "serde",
  "serde_json",
 ]
 
