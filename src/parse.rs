@@ -1,4 +1,7 @@
-use std::io::{BufRead, BufReader, Read};
+use std::{
+    error::Error,
+    io::{BufRead, BufReader, Read},
+};
 
 use byteorder::{ByteOrder, LittleEndian};
 use serde_json::{json, Value};
@@ -116,17 +119,17 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Puzzle> {
         }
     }
 
-    let title = read_string_till_nul(&mut reader)?;
-    let author = read_string_till_nul(&mut reader)?;
-    let copyright = read_string_till_nul(&mut reader)?;
+    let title = read_string_till_nul(&mut reader);
+    let author = read_string_till_nul(&mut reader);
+    let copyright = read_string_till_nul(&mut reader);
 
     let num_clues = header_data[2];
     let mut clue_data: Vec<String> = vec![];
     for _ in 1..=num_clues {
-        clue_data.push(read_string_till_nul(&mut reader)?);
+        clue_data.push(read_string_till_nul(&mut reader));
     }
 
-    let note = read_string_till_nul(&mut reader)?;
+    let note = read_string_till_nul(&mut reader);
 
     let mut extras_data = Vec::new();
     reader.read_to_end(&mut extras_data)?;
@@ -202,7 +205,7 @@ pub fn parse_puz(buffer: impl Read) -> std::io::Result<Puzzle> {
     })
 }
 
-pub fn convert(p: Puzzle) -> std::io::Result<Value> {
+pub fn convert(p: &Puzzle) -> std::io::Result<Value> {
     Ok(json!({
         "info": {
             "title": p.info.title ,
@@ -269,11 +272,20 @@ fn cell_needs_down_clue(board: &Vec<Vec<char>>, row: usize, col: usize) -> bool 
     false
 }
 
-fn read_string_till_nul<R: Read>(reader: &mut BufReader<R>) -> std::io::Result<String> {
-    let mut text = Vec::new();
-    reader.read_until(0, &mut text)?;
-    text.pop();
-    String::from_utf8(text).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+fn read_string_till_nul(reader: &mut BufReader<impl Read>) -> String {
+    let mut text = String::new();
+    loop {
+        let mut buf = [0u8; 1];
+        if reader.read_exact(&mut buf).is_err() {
+            break;
+        }
+        let current_char = buf[0] as char;
+        if current_char == '\0' {
+            break;
+        }
+        text.push(current_char);
+    }
+    text
 }
 
 #[cfg(test)]

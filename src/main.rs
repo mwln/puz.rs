@@ -27,7 +27,7 @@ fn main() -> color_eyre::Result<()> {
 
     let file = File::open(file_path)?;
     let puzzle = parse_puz(file)?;
-    let parsed_json = convert(puzzle)?;
+    let parsed_json = convert(&puzzle)?;
 
     let file_stem = Path::new(file_path)
         .file_stem()
