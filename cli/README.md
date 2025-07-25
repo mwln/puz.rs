@@ -4,9 +4,7 @@ CLI tool for processing `.puz` crossword puzzle files and outputting structured 
 
 ## Installation
 
-```bash
-cargo install puz
-```
+* unable to be installed right now - as name squatting @ https://crates.io/crates/puz
 
 ## Usage
 
