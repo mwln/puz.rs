@@ -3,7 +3,6 @@ use crate::{
     types::{Puzzle, TAKEN_SQUARE},
 };
 
-/// Comprehensive validation of the parsed puzzle
 pub(crate) fn validate_puzzle(puzzle: &Puzzle) -> Result<(), PuzError> {
     validate_puzzle_dimensions(puzzle.info.width, puzzle.info.height)?;
     validate_grid_structure(&puzzle.grid.blank, &puzzle.grid.solution)?;
@@ -11,21 +10,14 @@ pub(crate) fn validate_puzzle(puzzle: &Puzzle) -> Result<(), PuzError> {
     Ok(())
 }
 
-/// Validate puzzle dimensions are reasonable
 fn validate_puzzle_dimensions(width: u8, height: u8) -> Result<(), PuzError> {
     if width == 0 || height == 0 {
         return Err(PuzError::InvalidDimensions { width, height });
     }
 
-    // Most crosswords are reasonable sizes - warn about extreme dimensions
-    if width > 50 || height > 50 {
-        // This could be a warning instead of an error in future versions
-    }
-
     Ok(())
 }
 
-/// Validate grid structure and consistency
 fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), PuzError> {
     if blank.len() != solution.len() {
         return Err(PuzError::InvalidGrid {
@@ -36,11 +28,10 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
     for (i, (blank_row, solution_row)) in blank.iter().zip(solution.iter()).enumerate() {
         if blank_row.len() != solution_row.len() {
             return Err(PuzError::InvalidGrid {
-                reason: format!("Row {} has mismatched widths", i),
+                reason: format!("Row {i} has mismatched widths"),
             });
         }
 
-        // Validate that blocked squares are consistent
         for (j, (blank_char, solution_char)) in
             blank_row.chars().zip(solution_row.chars()).enumerate()
         {
@@ -49,14 +40,13 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
 
             if blank_blocked != solution_blocked {
                 return Err(PuzError::InvalidGrid {
-                    reason: format!("Blocked square mismatch at ({}, {})", i, j),
+                    reason: format!("Blocked square mismatch at ({i}, {j})"),
                 });
             }
 
-            // Validate that free squares have reasonable characters
             if !blank_blocked && !is_valid_puzzle_char(solution_char) {
                 return Err(PuzError::InvalidGrid {
-                    reason: format!("Invalid character '{}' at ({}, {})", solution_char, i, j),
+                    reason: format!("Invalid character '{solution_char}' at ({i}, {j})"),
                 });
             }
         }
@@ -65,27 +55,19 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
     Ok(())
 }
 
-/// Validate that clues are consistent with the grid
 fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
-    // Count expected clues based on grid structure
     let (expected_across, expected_down) = count_expected_clues(&puzzle.grid.blank);
 
     let actual_across = puzzle.clues.across.len();
     let actual_down = puzzle.clues.down.len();
 
-    // Check total clue count matches header
     let _total_expected = expected_across + expected_down;
     let _total_actual = actual_across + actual_down;
-
-    if _total_actual != puzzle.info.width as usize * puzzle.info.height as usize {
-        // This is just a sanity check - not always accurate due to black squares
-    }
 
     if actual_across != expected_across {
         return Err(PuzError::InvalidClues {
             reason: format!(
-                "Across clue count mismatch: expected {}, got {}",
-                expected_across, actual_across
+                "Across clue count mismatch: expected {expected_across}, got {actual_across}"
             ),
         });
     }
@@ -93,8 +75,7 @@ fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
     if actual_down != expected_down {
         return Err(PuzError::InvalidClues {
             reason: format!(
-                "Down clue count mismatch: expected {}, got {}",
-                expected_down, actual_down
+                "Down clue count mismatch: expected {expected_down}, got {actual_down}"
             ),
         });
     }
@@ -102,7 +83,6 @@ fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
     Ok(())
 }
 
-/// Count the expected number of across and down clues based on grid structure
 fn count_expected_clues(grid: &[String]) -> (usize, usize) {
     let mut across_count = 0;
     let mut down_count = 0;
@@ -124,9 +104,7 @@ fn count_expected_clues(grid: &[String]) -> (usize, usize) {
     (across_count, down_count)
 }
 
-/// Check if a character is valid for a puzzle solution
 fn is_valid_puzzle_char(c: char) -> bool {
-    // Allow letters, numbers, and some special characters commonly used in puzzles
     c.is_ascii_alphanumeric() || matches!(c, ' ' | '-' | '\'' | '&' | '.' | '!' | '?')
 }
 

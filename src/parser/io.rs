@@ -2,12 +2,19 @@ use crate::error::PuzError;
 use byteorder::{ByteOrder, LittleEndian};
 use std::io::{BufReader, Read};
 
-/// Validate the file magic header
 pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<(), PuzError> {
-    // Skip checksum (2 bytes)
+    // .puz file format starts with:
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // Offset | Size | Description
+    // -------|------|-------------
+    // 0x00   | 2    | Overall file checksum
+    // 0x02   | 12   | Magic string "ACROSS&DOWN\0"
+
+    // Skip the 2-byte overall file checksum
     skip_bytes(reader, 2)?;
 
-    // Read and validate magic string
+    // Read and validate the 12-byte magic string
     let mut magic = [0u8; 12];
     reader.read_exact(&mut magic)?;
 
@@ -21,28 +28,24 @@ pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<
     Ok(())
 }
 
-/// Skip a specified number of bytes in the reader
 pub(crate) fn skip_bytes<R: Read>(reader: &mut BufReader<R>, count: usize) -> Result<(), PuzError> {
     let mut buffer = vec![0u8; count];
     reader.read_exact(&mut buffer)?;
     Ok(())
 }
 
-/// Read a single byte from the reader
 pub(crate) fn read_u8<R: Read>(reader: &mut BufReader<R>) -> Result<u8, PuzError> {
     let mut buffer = [0u8; 1];
     reader.read_exact(&mut buffer)?;
     Ok(buffer[0])
 }
 
-/// Read a 16-bit little-endian value from the reader
 pub(crate) fn read_u16<R: Read>(reader: &mut BufReader<R>) -> Result<u16, PuzError> {
     let mut buffer = [0u8; 2];
     reader.read_exact(&mut buffer)?;
     Ok(LittleEndian::read_u16(&buffer))
 }
 
-/// Read a specified number of bytes from the reader
 pub(crate) fn read_bytes<R: Read>(
     reader: &mut BufReader<R>,
     count: usize,
@@ -52,7 +55,6 @@ pub(crate) fn read_bytes<R: Read>(
     Ok(buffer)
 }
 
-/// Read a null-terminated string from the reader with proper encoding handling
 pub(crate) fn read_string_until_nul<R: Read>(
     reader: &mut BufReader<R>,
 ) -> Result<String, PuzError> {
@@ -68,28 +70,23 @@ pub(crate) fn read_string_until_nul<R: Read>(
     decode_puz_string(&bytes)
 }
 
-/// Decode bytes using proper character encoding detection
-/// Tries UTF-8 first, falls back to Windows-1252
 pub(crate) fn decode_puz_string(bytes: &[u8]) -> Result<String, PuzError> {
-    // Try UTF-8 first (modern files)
     if let Ok(s) = std::str::from_utf8(bytes) {
         return Ok(s.to_string());
     }
 
-    // Fall back to Windows-1252 decoding for legacy files
-    // This handles smart quotes, em dashes, and other common characters
     Ok(bytes.iter().map(|&b| windows_1252_to_char(b)).collect())
 }
 
-/// Convert Windows-1252 byte to Unicode character
-/// Handles the 128-159 range that differs from ISO-8859-1
 fn windows_1252_to_char(byte: u8) -> char {
+    // Windows-1252 character mapping for bytes 128-159 that differ from ISO-8859-1
+    // Legacy .puz files often use Windows-1252 encoding for special characters
     match byte {
-        // Standard ASCII range (0-127)
+        // Standard ASCII range (0-127) maps directly
         0..=127 => byte as char,
-        // Windows-1252 specific mappings for 128-159
+        // Windows-1252 specific mappings for 128-159 range
         128 => '€',        // Euro sign
-        129 => '\u{0081}', // Unused in Windows-1252
+        129 => '\u{0081}', // Unused
         130 => '‚',        // Single low-9 quotation mark
         131 => 'ƒ',        // Latin small letter f with hook
         132 => '„',        // Double low-9 quotation mark
@@ -120,20 +117,27 @@ fn windows_1252_to_char(byte: u8) -> char {
         157 => '\u{009D}', // Unused
         158 => 'ž',        // Latin small letter z with caron
         159 => 'Ÿ',        // Latin capital letter Y with diaeresis
-        // ISO-8859-1 range (160-255) - same as Windows-1252
+        // ISO-8859-1 range (160-255) is identical to Windows-1252
         160..=255 => byte as char,
     }
 }
 
-/// Read all remaining data from the reader
 pub(crate) fn read_remaining_data<R: Read>(reader: &mut BufReader<R>) -> Result<Vec<u8>, PuzError> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
     Ok(data)
 }
 
-/// Find a specific section in the extra data
 pub(crate) fn find_section(data: &[u8], section_name: &str) -> Result<Option<Vec<u8>>, PuzError> {
+    // Extension sections format (after main puzzle data):
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // Each section has the structure:
+    // - Section name (4 bytes, e.g. "GRBS", "RTBL", "GEXT")
+    // - Data length (2 bytes, little-endian)
+    // - Checksum (2 bytes)
+    // - Section data (variable length)
+
     if let Some(index) = data
         .windows(section_name.len())
         .position(|window| window == section_name.as_bytes())

@@ -5,7 +5,6 @@ use crate::{
 };
 use std::collections::HashMap;
 
-/// Information about extra sections in the .puz file
 #[derive(Debug)]
 #[allow(clippy::upper_case_acronyms)]
 enum ExtraSection {
@@ -20,7 +19,6 @@ const EXTRA_SECTIONS: [(&str, ExtraSection); 3] = [
     ("GEXT", ExtraSection::GEXT),
 ];
 
-/// Parse extension sections with recovery for non-critical failures
 pub(crate) fn parse_extensions_with_recovery(
     data: &[u8],
     width: u8,
@@ -36,7 +34,6 @@ pub(crate) fn parse_extensions_with_recovery(
             Ok(Some(section_data)) => {
                 match section_type {
                     ExtraSection::GRBS => {
-                        // Validate GRBS section size first
                         let expected_size = (width as usize) * (height as usize);
                         if section_data.len() != expected_size {
                             warnings.push(PuzWarning::SkippedExtension {
@@ -56,7 +53,7 @@ pub(crate) fn parse_extensions_with_recovery(
                                     Ok(parsed_rebus) => rebus = Some(parsed_rebus),
                                     Err(e) => warnings.push(PuzWarning::SkippedExtension {
                                         section: "GRBS/RTBL".to_string(),
-                                        reason: format!("Failed to parse rebus data: {}", e),
+                                        reason: format!("Failed to parse rebus data: {e}"),
                                     }),
                                 }
                             }
@@ -68,7 +65,7 @@ pub(crate) fn parse_extensions_with_recovery(
                             }),
                             Err(e) => warnings.push(PuzWarning::SkippedExtension {
                                 section: "GRBS".to_string(),
-                                reason: format!("Failed to read RTBL section: {}", e),
+                                reason: format!("Failed to read RTBL section: {e}"),
                             }),
                         }
                     }
@@ -92,22 +89,18 @@ pub(crate) fn parse_extensions_with_recovery(
                                 }
                                 Err(e) => warnings.push(PuzWarning::SkippedExtension {
                                     section: "GEXT".to_string(),
-                                    reason: format!("Failed to parse GEXT data: {}", e),
+                                    reason: format!("Failed to parse GEXT data: {e}"),
                                 }),
                             }
                         }
                     }
-                    ExtraSection::RTBL => {
-                        // Handled with GRBS
-                    }
+                    ExtraSection::RTBL => {}
                 }
             }
-            Ok(None) => {
-                // Section not present - this is normal, not a warning
-            }
+            Ok(None) => {}
             Err(e) => warnings.push(PuzWarning::SkippedExtension {
                 section: section_name.to_string(),
-                reason: format!("Failed to read section: {}", e),
+                reason: format!("Failed to read section: {e}"),
             }),
         }
     }
@@ -122,13 +115,22 @@ pub(crate) fn parse_extensions_with_recovery(
     ))
 }
 
-/// Parse rebus data from GRBS and RTBL sections
 fn parse_rebus(
     grbs_data: &[u8],
     rtbl_data: &[u8],
     width: u8,
     height: u8,
 ) -> Result<Rebus, PuzError> {
+    // Rebus data format:
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // GRBS section: width * height bytes
+    // - Each byte indicates rebus key for that cell (0 = no rebus, 1-255 = rebus key)
+    //
+    // RTBL section: null-terminated string containing semicolon-separated entries
+    // - Format: "key:value;key:value;..." (e.g. "2:HEART;3:CLUB;")
+    // - Keys correspond to non-zero values in GRBS grid
+
     let grid_size = (width as usize) * (height as usize);
     if grbs_data.len() != grid_size {
         return Err(PuzError::SectionSizeMismatch {
@@ -138,19 +140,19 @@ fn parse_rebus(
         });
     }
 
-    // Parse GRBS grid
+    // Parse GRBS grid: convert flat byte array to 2D grid
     let grid = grbs_data
         .chunks(width as usize)
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    // Parse RTBL table using proper character encoding
+    // Parse RTBL table: decode string and split on semicolons
     let rtbl_str = super::io::decode_puz_string(rtbl_data)?;
     let mut table = HashMap::new();
 
     for entry in rtbl_str.split(';') {
         if entry.trim().is_empty() {
-            continue; // Skip empty entries
+            continue;
         }
         if let Some(colon_pos) = entry.find(':') {
             let key_str = entry[..colon_pos].trim();
@@ -164,11 +166,18 @@ fn parse_rebus(
     Ok(Rebus { grid, table })
 }
 
-/// Type alias for the complex return type of GEXT parsing
 type GextResult = (Option<Vec<Vec<bool>>>, Option<Vec<Vec<bool>>>);
 
-/// Parse GEXT section for circles and given squares
 fn parse_gext(data: &[u8], width: u8, height: u8) -> Result<GextResult, PuzError> {
+    // GEXT section format:
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // Contains width * height bytes, one per grid cell
+    // Each byte is a bitmask with flags:
+    // - Bit 7 (0x80): Cell is circled/marked for theme
+    // - Bit 6 (0x40): Cell contents were given to solver
+    // - Bits 0-5: Currently unused/reserved
+
     let grid_size = (width as usize) * (height as usize);
     if data.len() != grid_size {
         return Err(PuzError::SectionSizeMismatch {
@@ -187,14 +196,14 @@ fn parse_gext(data: &[u8], width: u8, height: u8) -> Result<GextResult, PuzError
         let row = i / (width as usize);
         let col = i % (width as usize);
 
+        // Check bit 7 (0x80) for circled squares
         if byte & 0x80 != 0 {
-            // Circled/shaded square
             circles[row][col] = true;
             has_circles = true;
         }
 
+        // Check bit 6 (0x40) for given squares
         if byte & 0x40 != 0 {
-            // Contents were given
             given[row][col] = true;
             has_given = true;
         }

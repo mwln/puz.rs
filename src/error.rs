@@ -103,27 +103,25 @@ impl fmt::Display for PuzError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PuzError::InvalidMagic { found } => {
-                write!(f, "Invalid .puz file magic header. Expected 'ACROSS&DOWN\\0', found: {:?}. This file may be corrupted or not a .puz file.", found)
+                write!(f, "Invalid .puz file magic header. Expected 'ACROSS&DOWN\\0', found: {found:?}. This file may be corrupted or not a .puz file.")
             }
             PuzError::InvalidChecksum {
                 expected,
                 found,
                 context,
             } => {
-                write!(f, "Checksum validation failed in {}: expected 0x{:04X}, found 0x{:04X}. The file may be corrupted.", context, expected, found)
+                write!(f, "Checksum validation failed in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted.")
             }
             PuzError::InvalidDimensions { width, height } => {
                 write!(
                     f,
-                    "Invalid puzzle dimensions: {}x{}. Dimensions must be between 1 and 255.",
-                    width, height
+                    "Invalid puzzle dimensions: {width}x{height}. Dimensions must be between 1 and 255."
                 )
             }
             PuzError::InvalidClueCount { expected, found } => {
                 write!(
                     f,
-                    "Clue count mismatch: expected {} clues, found {}. The file may be corrupted.",
-                    expected, found
+                    "Clue count mismatch: expected {expected} clues, found {found}. The file may be corrupted."
                 )
             }
             PuzError::SectionSizeMismatch {
@@ -131,48 +129,43 @@ impl fmt::Display for PuzError {
                 expected,
                 found,
             } => {
-                write!(f, "Extension section '{}' size mismatch: expected {} bytes, found {}. The section may be corrupted.", section, expected, found)
+                write!(f, "Extension section '{section}' size mismatch: expected {expected} bytes, found {found}. The section may be corrupted.")
             }
             PuzError::ParseError {
                 message,
                 position,
                 context,
             } => match position {
-                Some(pos) => write!(
-                    f,
-                    "Parse error at position {}: {} ({})",
-                    pos, message, context
-                ),
-                None => write!(f, "Parse error: {} ({})", message, context),
+                Some(pos) => write!(f, "Parse error at position {pos}: {message} ({context})"),
+                None => write!(f, "Parse error: {message} ({context})"),
             },
             PuzError::IoError {
                 message,
                 kind,
                 position,
             } => match position {
-                Some(pos) => write!(f, "I/O error at position {}: {} ({:?})", pos, message, kind),
-                None => write!(f, "I/O error: {} ({:?})", message, kind),
+                Some(pos) => write!(f, "I/O error at position {pos}: {message} ({kind:?})"),
+                None => write!(f, "I/O error: {message} ({kind:?})"),
             },
             PuzError::InvalidUtf8 { message, position } => match position {
-                Some(pos) => write!(f, "Invalid UTF-8 data at position {}: {}", pos, message),
-                None => write!(f, "Invalid UTF-8 data: {}", message),
+                Some(pos) => write!(f, "Invalid UTF-8 data at position {pos}: {message}"),
+                None => write!(f, "Invalid UTF-8 data: {message}"),
             },
             PuzError::MissingData { field, position } => match position {
-                Some(pos) => write!(f, "Missing required data '{}' at position {}", field, pos),
-                None => write!(f, "Missing required data: {}", field),
+                Some(pos) => write!(f, "Missing required data '{field}' at position {pos}"),
+                None => write!(f, "Missing required data: {field}"),
             },
             PuzError::UnsupportedVersion { version } => {
                 write!(
                     f,
-                    "Unsupported .puz file version: '{}'. Only standard versions are supported.",
-                    version
+                    "Unsupported .puz file version: '{version}'. Only standard versions are supported."
                 )
             }
             PuzError::InvalidGrid { reason } => {
-                write!(f, "Invalid puzzle grid: {}", reason)
+                write!(f, "Invalid puzzle grid: {reason}")
             }
             PuzError::InvalidClues { reason } => {
-                write!(f, "Invalid clues: {}", reason)
+                write!(f, "Invalid clues: {reason}")
             }
         }
     }
@@ -183,7 +176,7 @@ impl StdError for PuzError {}
 impl From<io::Error> for PuzError {
     fn from(error: io::Error) -> Self {
         PuzError::IoError {
-            message: format!("I/O operation failed: {}", error),
+            message: format!("I/O operation failed: {error}"),
             kind: error.kind(),
             position: None,
         }
@@ -193,7 +186,7 @@ impl From<io::Error> for PuzError {
 impl From<std::str::Utf8Error> for PuzError {
     fn from(error: std::str::Utf8Error) -> Self {
         PuzError::InvalidUtf8 {
-            message: format!("UTF-8 decoding failed: {}", error),
+            message: format!("UTF-8 decoding failed: {error}"),
             position: None,
         }
     }
@@ -220,12 +213,12 @@ impl PuzError {
                 kind,
                 position,
             } => PuzError::IoError {
-                message: format!("{}: {}", context, message),
+                message: format!("{context}: {message}"),
                 kind,
                 position,
             },
             PuzError::InvalidUtf8 { message, position } => PuzError::InvalidUtf8 {
-                message: format!("{}: {}", context, message),
+                message: format!("{context}: {message}"),
                 position,
             },
             PuzError::ParseError {
@@ -235,7 +228,7 @@ impl PuzError {
             } => PuzError::ParseError {
                 message,
                 position,
-                context: format!("{}: {}", context, existing_context),
+                context: format!("{context}: {existing_context}"),
             },
             other => other, // For other types, return as-is or convert to ParseError
         }
@@ -246,7 +239,7 @@ impl fmt::Display for PuzWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PuzWarning::SkippedExtension { section, reason } => {
-                write!(f, "Skipped extension section '{}': {}", section, reason)
+                write!(f, "Skipped extension section '{section}': {reason}")
             }
             PuzWarning::EncodingIssue { context, recovered } => {
                 write!(
@@ -261,10 +254,10 @@ impl fmt::Display for PuzWarning {
                 )
             }
             PuzWarning::DataRecovery { field, issue } => {
-                write!(f, "Data recovery for '{}': {}", field, issue)
+                write!(f, "Data recovery for '{field}': {issue}")
             }
             PuzWarning::ScrambledPuzzle { version } => {
-                write!(f, "Puzzle is scrambled (version {}). Solution may not be readable without descrambling.", version)
+                write!(f, "Puzzle is scrambled (version {version}). Solution may not be readable without descrambling.")
             }
         }
     }

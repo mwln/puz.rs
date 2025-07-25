@@ -5,33 +5,43 @@ use crate::{
 };
 use std::io::{BufReader, Read};
 
-/// Parse the solution and blank grids
 pub(crate) fn parse_grids<R: Read>(
     reader: &mut BufReader<R>,
     width: u8,
     height: u8,
 ) -> Result<Grid, PuzError> {
+    // Grid data format (after header and before strings):
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // The grids are stored as two consecutive byte arrays:
+    // 1. Solution grid: width * height bytes (actual puzzle answers)
+    // 2. Blank grid: width * height bytes (puzzle state for solver)
+    //
+    // Each byte represents one cell:
+    // - '.' (0x2E) = black/blocked square
+    // - '-' (0x2D) = empty square (in blank grid)
+    // - A-Z, 0-9 = letter/number content
+
     let board_size = (width as usize) * (height as usize);
 
-    // Read solution grid - convert bytes to chars, handling non-UTF8
+    // Read solution grid (width * height bytes)
     let solution_bytes = read_bytes(reader, board_size)?;
     let solution_chars: String = solution_bytes.iter().map(|&b| b as char).collect();
 
-    // Read blank grid - convert bytes to chars, handling non-UTF8
+    // Read blank grid (width * height bytes)
     let blank_bytes = read_bytes(reader, board_size)?;
     let blank_chars: String = blank_bytes.iter().map(|&b| b as char).collect();
 
-    // Convert to row-based format
+    // Convert flat strings to row-based grids
     let solution = string_to_grid(&solution_chars, width as usize);
     let blank = string_to_grid(&blank_chars, width as usize);
 
-    // Validate grid consistency
+    // Ensure blocked squares match between grids
     validate_grid_consistency(&solution, &blank, width, height)?;
 
     Ok(Grid { blank, solution })
 }
 
-/// Convert a flat string to a grid of rows
 fn string_to_grid(s: &str, width: usize) -> Vec<String> {
     s.chars()
         .collect::<Vec<char>>()
@@ -40,14 +50,12 @@ fn string_to_grid(s: &str, width: usize) -> Vec<String> {
         .collect()
 }
 
-/// Validate that the grids are consistent
 fn validate_grid_consistency(
     solution: &[String],
     blank: &[String],
     width: u8,
     height: u8,
 ) -> Result<(), PuzError> {
-    // Check dimensions match
     if solution.len() != height as usize || blank.len() != height as usize {
         return Err(PuzError::InvalidGrid {
             reason: format!(
@@ -72,13 +80,11 @@ fn validate_grid_consistency(
             });
         }
 
-        // Validate that blocked squares match
         for (j, (sol_char, blank_char)) in sol_row.chars().zip(blank_row.chars()).enumerate() {
             if (sol_char == TAKEN_SQUARE) != (blank_char == TAKEN_SQUARE) {
                 return Err(PuzError::InvalidGrid {
                     reason: format!(
-                        "Grid consistency error at ({}, {}): blocked squares don't match",
-                        i, j
+                        "Grid consistency error at ({i}, {j}): blocked squares don't match"
                     ),
                 });
             }
@@ -88,16 +94,12 @@ fn validate_grid_consistency(
     Ok(())
 }
 
-/// Check if a cell needs an across clue
 pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
         if let Some(this_char) = row_str.chars().nth(col) {
             if this_char == FREE_SQUARE {
-                // Check if next cell is also free
                 if let Some(next_char) = row_str.chars().nth(col + 1) {
                     if next_char == FREE_SQUARE {
-                        // This starts an across word if it's at the left edge
-                        // or the previous cell is blocked
                         return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
                     }
                 }
@@ -107,17 +109,13 @@ pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) ->
     false
 }
 
-/// Check if a cell needs a down clue
 pub(crate) fn cell_needs_down_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
         if let Some(this_char) = row_str.chars().nth(col) {
             if this_char == FREE_SQUARE {
-                // Check if cell below is also free
                 if let Some(next_row) = grid.get(row + 1) {
                     if let Some(next_char) = next_row.chars().nth(col) {
                         if next_char == FREE_SQUARE {
-                            // This starts a down word if it's at the top edge
-                            // or the cell above is blocked
                             return row == 0
                                 || grid.get(row - 1).and_then(|r| r.chars().nth(col))
                                     == Some(TAKEN_SQUARE);

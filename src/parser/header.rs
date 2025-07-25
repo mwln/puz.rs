@@ -2,7 +2,6 @@ use super::io::{decode_puz_string, read_bytes, read_u16, read_u8, skip_bytes};
 use crate::error::PuzError;
 use std::io::{BufReader, Read};
 
-/// Header information from the .puz file
 #[derive(Debug)]
 pub(crate) struct Header {
     pub width: u8,
@@ -10,20 +9,36 @@ pub(crate) struct Header {
     pub num_clues: u16,
     pub version: String,
     #[allow(dead_code)]
-    pub bitmask: u16, // Parsed but not currently used - may be useful for future format variations
+    pub bitmask: u16,
     pub is_scrambled: bool,
 }
 
-/// Parse the header information from the .puz file
 pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header, PuzError> {
-    // After magic (12 bytes), skip: CIB checksum (2), masked checksums (8)
+    // .puz file header format (after 12-byte magic string):
+    // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
+    //
+    // Offset | Size | Description
+    // -------|------|-------------
+    // 0x0E   | 2    | CIB Checksum (skip)
+    // 0x10   | 8    | Masked low/high checksums (skip)
+    // 0x18   | 4    | Version string (e.g. "1.3\0")
+    // 0x1C   | 2    | Reserved (skip)
+    // 0x1E   | 2    | Scrambled checksum (skip)
+    // 0x20   | 12   | Reserved (skip)
+    // 0x2C   | 1    | Width
+    // 0x2D   | 1    | Height
+    // 0x2E   | 2    | Number of clues
+    // 0x30   | 2    | Puzzle type bitmask
+    // 0x32   | 2    | Scrambled tag
+
+    // Skip CIB checksum (2) + masked checksums (8) = 10 bytes
     skip_bytes(reader, 10)?;
 
     // Read version string (4 bytes)
     let version_bytes = read_bytes(reader, 4)?;
     let version = decode_puz_string(&version_bytes)?;
 
-    // Skip reserved fields and scrambled checksum: reserved (2), scrambled checksum (2), reserved (12)
+    // Skip reserved (2) + scrambled checksum (2) + reserved (12) = 16 bytes
     skip_bytes(reader, 16)?;
 
     let width = read_u8(reader)?;
@@ -32,12 +47,12 @@ pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header,
     let bitmask = read_u16(reader)?;
     let scrambled_tag = read_u16(reader)?;
 
-    // Validate dimensions
+    // Validate dimensions (must be non-zero per .puz format)
     if width == 0 || height == 0 {
         return Err(PuzError::InvalidDimensions { width, height });
     }
 
-    // Check if puzzle is scrambled (typically 0x0004 for scrambled, 0x0000 for normal)
+    // Scrambled tag: 0x0000 = normal, non-zero = scrambled puzzle
     let is_scrambled = scrambled_tag != 0;
 
     Ok(Header {
