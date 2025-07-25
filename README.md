@@ -1,64 +1,37 @@
-# puz.rs
+# puz
 
-A .puz file parser
+A Rust library for parsing `.puz` crossword puzzle files.
+
+## Installation
+
+```toml
+[dependencies]
+puz = "0.1.0"
+```
 
 ## Usage
 
-- Takes in one or more `.puz` files and parses them to TOML format on stdout
-- assigns a "smartId", as a means of identifying unique puzzles based on
-  solution grid.
-- Can return the following to stdout / file(s) / or through a module function via
-  crate import:
+```rust
+use std::fs::File;
+use puz::parse;
 
-```toml
-[info]
-authors = "Will Shortz & Someone"
-size = [15, 15]
-id = "something smart"
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open("puzzle.puz")?;
+    let result = parse(file)?;
+    let puzzle = result.result;
 
-[grid]
-blank = [
-   "...",
-   "...",
-   "...",
-]
-solution = [
-    "dog",
-    "oat",
-    "bra",
-]
-extensions = [
-    # nothing here means puzzle is standard
-    # circled squares = o
-    # tile contents are given = g
-    # tile has rebus @ index n = n (`u16`)
-    "og3", # circled, contents given, rebus.options[3]
-    "...",
-    "...",
-]
+    println!("Title: {}", puzzle.info.title);
+    println!("Author: {}", puzzle.info.author);
+    println!("Size: {}x{}", puzzle.info.width, puzzle.info.height);
+    
+    for (num, clue) in &puzzle.clues.across {
+        println!("{} Across: {}", num, clue);
+    }
 
-[clues]
-across = {
-    1: "something",
-    2: "else",
-    3: "is up!",
+    Ok(())
 }
-down = {
-    1: "something",
-    2: "else",
-    3: "is up!",
-}
-
-[rebus]
-options = [ "CLUB", "DIAMOND", "SPADE", "HEARTS"]
 ```
 
-## Thoughts
+## License
 
-- Think of ways to handle multiple files when outputting to stdout
-
-## Considerations
-
-- How do scrambled puzzles get read?
-- Assigning rebus's properly
-- GEXT analysis for board setup
+MIT
