@@ -91,21 +91,25 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
   test-release:
-    name: test release build
+    name: test release build ${{ matrix.target }}
     runs-on: ubuntu-latest
     needs: [test, lint]
     if: github.event_name != 'schedule' # skip on weekly cron
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
+          - target: x86_64-pc-windows-msvc
+          - target: x86_64-apple-darwin
+          - target: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
       - name: dry-run cross-platform binary build
         uses: rust-build/rust-build.action@v1.4.5
         with:
-          RUSTTARGET: |
-            x86_64-unknown-linux-gnu
-            x86_64-unknown-linux-musl
-            x86_64-pc-windows-msvc
-            x86_64-apple-darwin
-            aarch64-apple-darwin
+          RUSTTARGET: ${{ matrix.target }}
           UPLOAD_MODE: artifacts # no GitHub Release, just workflow artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
