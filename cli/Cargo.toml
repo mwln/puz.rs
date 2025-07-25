@@ -3,6 +3,7 @@ name = "puz"
 version = "0.1.0"
 edition = "2021"
 description = "CLI tool for processing .puz crossword puzzle files"
+rust-version = "1.78.0"
 
 [[bin]]
 name = "puz"

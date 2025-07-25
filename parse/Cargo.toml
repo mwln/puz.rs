@@ -16,7 +16,7 @@ exclude = [
     "target/",
     ".git/",
 ]
-rust-version = "1.70"
+rust-version = "1.78.0"
 
 [lib]
 name = "puz_parse"

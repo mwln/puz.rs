@@ -1,0 +1,19 @@
+# general
+sign-commit = false
+sign-tag = false
+tag-name = "v{{version}}"
+tag-message = "Release v{{version}}"
+push = true
+allow-branch = ["main"]
+
+# ci
+publish = true # allows `cargo-release` to handle crates.io publishing
+verify = true
+consolidate-commits = true
+
+# workspace versioning
+shared-version = false
+dependent-version = "upgrade"
+
+# extra validation
+pre-release-hook = ["cargo", "check", "--workspace"]
