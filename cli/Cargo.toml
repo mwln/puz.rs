@@ -3,6 +3,9 @@ name = "puz"
 version = "0.1.0"
 edition = "2021"
 description = "CLI tool for processing .puz crossword puzzle files"
+license = "MIT"
+homepage = "https://github.com/mwln/puz.rs"
+repository = "https://github.com/mwln/puz.rs"
 rust-version = "1.78.0"
 
 [[bin]]
@@ -10,7 +13,7 @@ name = "puz"
 path = "src/main.rs"
 
 [dependencies]
-puz-parse = { path = "../parse", features = ["json"] }
+puz-parse = { version = "0.1.0", path = "../parse", features = ["json"] }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
