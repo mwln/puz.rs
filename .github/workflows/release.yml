@@ -1,25 +1,37 @@
 name: release
+
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [created]
+
 env:
   CARGO_TERM_COLOR: always
+
 jobs:
-  release-binaries:
-    name: build & release binaries
+  release:
+    name: release ${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz tar.xz tar.zst
+          - target: x86_64-pc-windows-msvc
+            archive: zip
+          - target: x86_64-apple-darwin
+            archive: zip
+          - target: aarch64-apple-darwin
+            archive: zip
     steps:
       - uses: actions/checkout@v4
-      - name: build and release cross-platform binaries
-        uses: rust-build/rust-build.action@v1
-        with:
-          RUSTTARGET: |
-            x86_64-unknown-linux-gnu
-            x86_64-unknown-linux-musl
-            x86_64-pc-windows-msvc
-            x86_64-apple-darwin
-            aarch64-apple-darwin
-          UPLOAD_MODE: release
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+          EXTRA_FILES: "README.md LICENSE cli/README.md"
