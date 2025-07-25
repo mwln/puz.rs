@@ -1,5 +1,5 @@
-use crate::error::PuzError;
 use super::io::read_string_until_nul;
+use crate::error::PuzError;
 use std::io::{BufReader, Read};
 
 /// Parsed string data from the file
@@ -26,9 +26,9 @@ pub(crate) fn parse_strings<R: Read>(
         match read_string_until_nul(reader) {
             Ok(clue) => clues.push(clue),
             Err(_e) => {
-                return Err(PuzError::InvalidClueCount { 
-                    expected: num_clues, 
-                    found: i as usize 
+                return Err(PuzError::InvalidClueCount {
+                    expected: num_clues,
+                    found: i as usize,
                 });
             }
         }
@@ -38,9 +38,9 @@ pub(crate) fn parse_strings<R: Read>(
 
     // Validate clue count matches header
     if clues.len() != num_clues as usize {
-        return Err(PuzError::InvalidClueCount { 
-            expected: num_clues, 
-            found: clues.len() 
+        return Err(PuzError::InvalidClueCount {
+            expected: num_clues,
+            found: clues.len(),
         });
     }
 

@@ -1,5 +1,8 @@
-use crate::{error::PuzError, types::{Grid, FREE_SQUARE, TAKEN_SQUARE}};
 use super::io::read_bytes;
+use crate::{
+    error::PuzError,
+    types::{Grid, FREE_SQUARE, TAKEN_SQUARE},
+};
 use std::io::{BufReader, Read};
 
 /// Parse the solution and blank grids
@@ -39,32 +42,44 @@ fn string_to_grid(s: &str, width: usize) -> Vec<String> {
 
 /// Validate that the grids are consistent
 fn validate_grid_consistency(
-    solution: &[String], 
-    blank: &[String], 
-    width: u8, 
-    height: u8
+    solution: &[String],
+    blank: &[String],
+    width: u8,
+    height: u8,
 ) -> Result<(), PuzError> {
     // Check dimensions match
     if solution.len() != height as usize || blank.len() != height as usize {
-        return Err(PuzError::InvalidGrid { 
-            reason: format!("Grid height mismatch: expected {}, got solution: {}, blank: {}", 
-                height, solution.len(), blank.len()) 
+        return Err(PuzError::InvalidGrid {
+            reason: format!(
+                "Grid height mismatch: expected {}, got solution: {}, blank: {}",
+                height,
+                solution.len(),
+                blank.len()
+            ),
         });
     }
 
     for (i, (sol_row, blank_row)) in solution.iter().zip(blank.iter()).enumerate() {
         if sol_row.len() != width as usize || blank_row.len() != width as usize {
-            return Err(PuzError::InvalidGrid { 
-                reason: format!("Grid width mismatch at row {}: expected {}, got solution: {}, blank: {}", 
-                    i, width, sol_row.len(), blank_row.len()) 
+            return Err(PuzError::InvalidGrid {
+                reason: format!(
+                    "Grid width mismatch at row {}: expected {}, got solution: {}, blank: {}",
+                    i,
+                    width,
+                    sol_row.len(),
+                    blank_row.len()
+                ),
             });
         }
 
         // Validate that blocked squares match
         for (j, (sol_char, blank_char)) in sol_row.chars().zip(blank_row.chars()).enumerate() {
             if (sol_char == TAKEN_SQUARE) != (blank_char == TAKEN_SQUARE) {
-                return Err(PuzError::InvalidGrid { 
-                    reason: format!("Grid consistency error at ({}, {}): blocked squares don't match", i, j) 
+                return Err(PuzError::InvalidGrid {
+                    reason: format!(
+                        "Grid consistency error at ({}, {}): blocked squares don't match",
+                        i, j
+                    ),
                 });
             }
         }
@@ -126,19 +141,19 @@ mod tests {
     fn test_parse_grids_valid() {
         let width = 3u8;
         let height = 3u8;
-        
+
         // Create solution grid: simple 3x3 with some black squares (9 bytes)
         let solution_data = b"ABC.DEFGH";
         // Create blank grid: same pattern but with dashes for empty squares (9 bytes, blacks must match)
         let blank_data = b"---.-----";
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let grid = parse_grids(&mut reader, width, height).unwrap();
-        
+
         assert_eq!(grid.solution.len(), 3);
         assert_eq!(grid.blank.len(), 3);
         assert_eq!(grid.solution[0], "ABC");
@@ -155,17 +170,17 @@ mod tests {
     fn test_parse_grids_all_black() {
         let width = 2u8;
         let height = 2u8;
-        
+
         let solution_data = b"....";
         let blank_data = b"....";
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let grid = parse_grids(&mut reader, width, height).unwrap();
-        
+
         assert_eq!(grid.solution, vec!["..".to_string(), "..".to_string()]);
         assert_eq!(grid.blank, vec!["..".to_string(), "..".to_string()]);
     }
@@ -176,17 +191,17 @@ mod tests {
     fn test_parse_grids_all_free() {
         let width = 2u8;
         let height = 2u8;
-        
+
         let solution_data = b"ABCD";
         let blank_data = b"----";
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let grid = parse_grids(&mut reader, width, height).unwrap();
-        
+
         assert_eq!(grid.solution, vec!["AB".to_string(), "CD".to_string()]);
         assert_eq!(grid.blank, vec!["--".to_string(), "--".to_string()]);
     }
@@ -197,17 +212,17 @@ mod tests {
     fn test_parse_grids_single_cell() {
         let width = 1u8;
         let height = 1u8;
-        
+
         let solution_data = b"A";
         let blank_data = b"-";
-        
+
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let grid = parse_grids(&mut reader, width, height).unwrap();
-        
+
         assert_eq!(grid.solution, vec!["A".to_string()]);
         assert_eq!(grid.blank, vec!["-".to_string()]);
     }
@@ -219,11 +234,11 @@ mod tests {
         let width = 15u8;
         let height = 15u8;
         let board_size = (width as usize) * (height as usize);
-        
+
         // Create alternating pattern
         let mut solution_data = Vec::new();
         let mut blank_data = Vec::new();
-        
+
         for i in 0..board_size {
             if i % 2 == 0 {
                 solution_data.push(b'A');
@@ -233,14 +248,14 @@ mod tests {
                 blank_data.push(b'.');
             }
         }
-        
+
         let mut data = Vec::new();
         data.extend(solution_data);
         data.extend(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let grid = parse_grids(&mut reader, width, height).unwrap();
-        
+
         assert_eq!(grid.solution.len(), 15);
         assert_eq!(grid.blank.len(), 15);
         assert_eq!(grid.solution[0].len(), 15);
@@ -253,13 +268,13 @@ mod tests {
     fn test_parse_grids_insufficient_data() {
         let width = 3u8;
         let height = 3u8;
-        
+
         // Only provide solution data, missing blank data
         let solution_data = b"ABC.DEFGH";
-        
+
         let mut reader = BufReader::new(Cursor::new(solution_data));
         let result = parse_grids(&mut reader, width, height);
-        
+
         assert!(result.is_err());
         matches!(result.unwrap_err(), PuzError::IoError { .. });
     }
@@ -270,18 +285,18 @@ mod tests {
     fn test_parse_grids_consistency_failure() {
         let width = 2u8;
         let height = 2u8;
-        
+
         // Solution has black square at (0,1), blank doesn't
         let solution_data = b"A.BC";
-        let blank_data = b"--B-";  // Inconsistent: should be "-.B-"
-        
+        let blank_data = b"--B-"; // Inconsistent: should be "-.B-"
+
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
-        
+
         let mut reader = BufReader::new(Cursor::new(data));
         let result = parse_grids(&mut reader, width, height);
-        
+
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
             assert!(reason.contains("consistency error"));
@@ -297,15 +312,18 @@ mod tests {
         // Test normal case
         let result = string_to_grid("ABCDEF", 3);
         assert_eq!(result, vec!["ABC".to_string(), "DEF".to_string()]);
-        
+
         // Test single row
         let result = string_to_grid("ABC", 3);
         assert_eq!(result, vec!["ABC".to_string()]);
-        
+
         // Test single column
         let result = string_to_grid("ABC", 1);
-        assert_eq!(result, vec!["A".to_string(), "B".to_string(), "C".to_string()]);
-        
+        assert_eq!(
+            result,
+            vec!["A".to_string(), "B".to_string(), "C".to_string()]
+        );
+
         // Test empty string
         let result = string_to_grid("", 1);
         assert_eq!(result, Vec::<String>::new());
@@ -316,21 +334,21 @@ mod tests {
     #[test]
     fn test_cell_needs_across_clue() {
         let grid = vec![
-            "---".to_string(),  // Row 0: across clue at (0,0) 
-            "...".to_string(),  // Row 1: all blocked, no across clues
-            "--.".to_string(),  // Row 2: across clue at (2,0), not at (2,2)
+            "---".to_string(), // Row 0: across clue at (0,0)
+            "...".to_string(), // Row 1: all blocked, no across clues
+            "--.".to_string(), // Row 2: across clue at (2,0), not at (2,2)
         ];
-        
+
         // Test start of across word - needs two consecutive free squares
         assert!(cell_needs_across_clue(&grid, 0, 0)); // --, starts word
         assert!(!cell_needs_across_clue(&grid, 0, 1)); // continues word
         assert!(!cell_needs_across_clue(&grid, 0, 2)); // continues word
-        
+
         // Test blocked squares
         assert!(!cell_needs_across_clue(&grid, 1, 0)); // blocked square
         assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked square
         assert!(!cell_needs_across_clue(&grid, 1, 2)); // blocked square
-        
+
         // Test second row
         assert!(cell_needs_across_clue(&grid, 2, 0)); // --, starts word
         assert!(!cell_needs_across_clue(&grid, 2, 1)); // continues word
@@ -342,21 +360,21 @@ mod tests {
     #[test]
     fn test_cell_needs_down_clue() {
         let grid = vec![
-            "-.-".to_string(),  // Row 0
-            "-.-".to_string(),  // Row 1  
-            "...".to_string(),  // Row 2: all blocked
+            "-.-".to_string(), // Row 0
+            "-.-".to_string(), // Row 1
+            "...".to_string(), // Row 2: all blocked
         ];
-        
+
         // Test start of down word - needs two consecutive free squares vertically
         assert!(cell_needs_down_clue(&grid, 0, 0)); // -/-, starts down word
         assert!(!cell_needs_down_clue(&grid, 1, 0)); // continues down word
         assert!(!cell_needs_down_clue(&grid, 2, 0)); // blocked square
-        
+
         // Test blocked column
         assert!(!cell_needs_down_clue(&grid, 0, 1)); // blocked square
         assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked square
         assert!(!cell_needs_down_clue(&grid, 2, 1)); // blocked square
-        
+
         // Test column with down word
         assert!(cell_needs_down_clue(&grid, 0, 2)); // -/-, starts down word
         assert!(!cell_needs_down_clue(&grid, 1, 2)); // continues down word
@@ -365,14 +383,14 @@ mod tests {
 
     /// Test across clue detection with edge cases
     /// Boundary conditions and single-letter words
-    #[test] 
+    #[test]
     fn test_across_clue_edge_cases() {
         // Single column grid
         let grid = vec!["-".to_string(), "-".to_string(), ".".to_string()];
         assert!(!cell_needs_across_clue(&grid, 0, 0)); // Can't have across word with width 1
         assert!(!cell_needs_across_clue(&grid, 1, 0)); // Can't have across word with width 1
         assert!(!cell_needs_across_clue(&grid, 2, 0)); // Blocked square
-        
+
         // Grid with gaps
         let grid = vec!["-.--.".to_string()];
         assert!(!cell_needs_across_clue(&grid, 0, 0)); // - (isolated, no next free square)
@@ -391,7 +409,7 @@ mod tests {
         assert!(!cell_needs_down_clue(&grid, 0, 0)); // Can't have down word with height 1
         assert!(!cell_needs_down_clue(&grid, 0, 1)); // Can't have down word with height 1
         assert!(!cell_needs_down_clue(&grid, 0, 2)); // Can't have down word with height 1
-        
+
         // Grid with gaps
         let grid = vec![
             "-".to_string(),
@@ -413,7 +431,7 @@ mod tests {
     fn test_validate_grid_consistency_dimension_mismatch() {
         let solution = vec!["ABC".to_string(), "DEF".to_string()]; // 2 rows
         let blank = vec!["---".to_string()]; // 1 row
-        
+
         let result = validate_grid_consistency(&solution, &blank, 3, 2);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
@@ -429,7 +447,7 @@ mod tests {
     fn test_validate_grid_consistency_width_mismatch() {
         let solution = vec!["ABC".to_string(), "DE".to_string()]; // Second row too short
         let blank = vec!["---".to_string(), "--".to_string()];
-        
+
         let result = validate_grid_consistency(&solution, &blank, 3, 2);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
@@ -444,37 +462,37 @@ mod tests {
     #[test]
     fn test_clue_detection_realistic_grid() {
         let grid = vec![
-            "---".to_string(),    // Row 0: all free squares
-            "-.-".to_string(),    // Row 1: free, blocked, free  
-            "---".to_string(),    // Row 2: all free squares
+            "---".to_string(), // Row 0: all free squares
+            "-.-".to_string(), // Row 1: free, blocked, free
+            "---".to_string(), // Row 2: all free squares
         ];
-        
+
         // Across clues: should be at start of each word
         assert!(cell_needs_across_clue(&grid, 0, 0)); // 3-letter word at row 0
         assert!(!cell_needs_across_clue(&grid, 0, 1)); // continues word
         assert!(!cell_needs_across_clue(&grid, 0, 2)); // continues word
-        
+
         assert!(!cell_needs_across_clue(&grid, 1, 0)); // only 1 free square before block
         assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked square
         assert!(!cell_needs_across_clue(&grid, 1, 2)); // only 1 free square (isolated)
-        
+
         assert!(cell_needs_across_clue(&grid, 2, 0)); // 3-letter word at row 2
         assert!(!cell_needs_across_clue(&grid, 2, 1)); // continues word
         assert!(!cell_needs_across_clue(&grid, 2, 2)); // continues word
-        
-        // Down clues: should be at start of each word  
+
+        // Down clues: should be at start of each word
         assert!(cell_needs_down_clue(&grid, 0, 0)); // 3-letter word at col 0
         assert!(!cell_needs_down_clue(&grid, 1, 0)); // continues word
         assert!(!cell_needs_down_clue(&grid, 2, 0)); // continues word
-        
+
         assert!(!cell_needs_down_clue(&grid, 0, 1)); // only free at top, blocked below
         assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked square
         assert!(!cell_needs_down_clue(&grid, 2, 1)); // isolated - no cell below
-        
+
         assert!(cell_needs_down_clue(&grid, 0, 2)); // 3-letter word at col 2
         assert!(!cell_needs_down_clue(&grid, 1, 2)); // continues word
         assert!(!cell_needs_down_clue(&grid, 2, 2)); // continues word
-        
+
         // Middle of row 1 is blocked
         assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked
         assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked

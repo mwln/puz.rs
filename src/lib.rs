@@ -7,7 +7,7 @@
 //!
 //! ```rust,no_run
 //! use std::fs::File;
-//! use puz_rs::parse;
+//! use puz::parse;
 //!
 //! let file = File::open("puzzle.puz")?;
 //! let result = parse(file)?;
@@ -20,7 +20,7 @@ mod error;
 mod parser;
 mod types;
 
-pub use error::{PuzError, PuzWarning, ParseResult};
+pub use error::{ParseResult, PuzError, PuzWarning};
 pub use types::*;
 
 use std::io::Read;
@@ -40,7 +40,7 @@ use std::io::Read;
 ///
 /// ```rust,no_run
 /// use std::fs::File;
-/// use puz_rs::parse;
+/// use puz::parse;
 ///
 /// let file = File::open("puzzle.puz")?;
 /// let result = parse(file)?;

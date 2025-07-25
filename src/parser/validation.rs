@@ -1,4 +1,7 @@
-use crate::{error::PuzError, types::{Puzzle, TAKEN_SQUARE}};
+use crate::{
+    error::PuzError,
+    types::{Puzzle, TAKEN_SQUARE},
+};
 
 /// Comprehensive validation of the parsed puzzle
 pub(crate) fn validate_puzzle(puzzle: &Puzzle) -> Result<(), PuzError> {
@@ -13,45 +16,47 @@ fn validate_puzzle_dimensions(width: u8, height: u8) -> Result<(), PuzError> {
     if width == 0 || height == 0 {
         return Err(PuzError::InvalidDimensions { width, height });
     }
-    
+
     // Most crosswords are reasonable sizes - warn about extreme dimensions
     if width > 50 || height > 50 {
         // This could be a warning instead of an error in future versions
     }
-    
+
     Ok(())
 }
 
 /// Validate grid structure and consistency
 fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), PuzError> {
     if blank.len() != solution.len() {
-        return Err(PuzError::InvalidGrid { 
-            reason: "Blank and solution grids have different heights".to_string() 
+        return Err(PuzError::InvalidGrid {
+            reason: "Blank and solution grids have different heights".to_string(),
         });
     }
 
     for (i, (blank_row, solution_row)) in blank.iter().zip(solution.iter()).enumerate() {
         if blank_row.len() != solution_row.len() {
-            return Err(PuzError::InvalidGrid { 
-                reason: format!("Row {} has mismatched widths", i) 
+            return Err(PuzError::InvalidGrid {
+                reason: format!("Row {} has mismatched widths", i),
             });
         }
 
         // Validate that blocked squares are consistent
-        for (j, (blank_char, solution_char)) in blank_row.chars().zip(solution_row.chars()).enumerate() {
+        for (j, (blank_char, solution_char)) in
+            blank_row.chars().zip(solution_row.chars()).enumerate()
+        {
             let blank_blocked = blank_char == TAKEN_SQUARE;
             let solution_blocked = solution_char == TAKEN_SQUARE;
-            
+
             if blank_blocked != solution_blocked {
-                return Err(PuzError::InvalidGrid { 
-                    reason: format!("Blocked square mismatch at ({}, {})", i, j) 
+                return Err(PuzError::InvalidGrid {
+                    reason: format!("Blocked square mismatch at ({}, {})", i, j),
                 });
             }
 
             // Validate that free squares have reasonable characters
             if !blank_blocked && !is_valid_puzzle_char(solution_char) {
-                return Err(PuzError::InvalidGrid { 
-                    reason: format!("Invalid character '{}' at ({}, {})", solution_char, i, j) 
+                return Err(PuzError::InvalidGrid {
+                    reason: format!("Invalid character '{}' at ({}, {})", solution_char, i, j),
                 });
             }
         }
@@ -71,20 +76,26 @@ fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
     // Check total clue count matches header
     let _total_expected = expected_across + expected_down;
     let _total_actual = actual_across + actual_down;
-    
+
     if _total_actual != puzzle.info.width as usize * puzzle.info.height as usize {
         // This is just a sanity check - not always accurate due to black squares
     }
 
     if actual_across != expected_across {
-        return Err(PuzError::InvalidClues { 
-            reason: format!("Across clue count mismatch: expected {}, got {}", expected_across, actual_across) 
+        return Err(PuzError::InvalidClues {
+            reason: format!(
+                "Across clue count mismatch: expected {}, got {}",
+                expected_across, actual_across
+            ),
         });
     }
 
     if actual_down != expected_down {
-        return Err(PuzError::InvalidClues { 
-            reason: format!("Down clue count mismatch: expected {}, got {}", expected_down, actual_down) 
+        return Err(PuzError::InvalidClues {
+            reason: format!(
+                "Down clue count mismatch: expected {}, got {}",
+                expected_down, actual_down
+            ),
         });
     }
 
@@ -122,7 +133,7 @@ fn is_valid_puzzle_char(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{Puzzle, PuzzleInfo, Grid, Clues, Extensions};
+    use crate::types::{Clues, Extensions, Grid, Puzzle, PuzzleInfo};
     use std::collections::HashMap;
 
     /// Helper to create a valid test puzzle
@@ -160,13 +171,13 @@ mod tests {
     fn test_validate_puzzle_dimensions_valid() {
         let result = validate_puzzle_dimensions(15, 15);
         assert!(result.is_ok());
-        
+
         let result = validate_puzzle_dimensions(21, 21);
         assert!(result.is_ok());
-        
+
         let result = validate_puzzle_dimensions(1, 1);
         assert!(result.is_ok());
-        
+
         let result = validate_puzzle_dimensions(50, 50);
         assert!(result.is_ok());
     }
@@ -183,7 +194,7 @@ mod tests {
         } else {
             panic!("Expected InvalidDimensions error");
         }
-        
+
         let result = validate_puzzle_dimensions(15, 0);
         assert!(result.is_err());
         if let Err(PuzError::InvalidDimensions { width, height }) = result {
@@ -200,7 +211,7 @@ mod tests {
     fn test_validate_grid_structure_valid() {
         let blank = vec!["---".to_string(), ".--".to_string(), "---".to_string()];
         let solution = vec!["ABC".to_string(), ".DE".to_string(), "FGH".to_string()];
-        
+
         let result = validate_grid_structure(&blank, &solution);
         assert!(result.is_ok());
     }
@@ -211,7 +222,7 @@ mod tests {
     fn test_validate_grid_structure_length_mismatch() {
         let blank = vec!["---".to_string(), "---".to_string()]; // 2 rows
         let solution = vec!["ABC".to_string()]; // 1 row
-        
+
         let result = validate_grid_structure(&blank, &solution);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
@@ -227,14 +238,14 @@ mod tests {
     fn test_validate_grid_structure_width_mismatch() {
         let _blank = vec!["---".to_string(), "--".to_string()]; // Second row shorter
         let _solution = vec!["ABC".to_string(), "DE".to_string()]; // Second row shorter
-        
+
         // Note: The current validation logic doesn't actually check for consistent widths within grids
         // It only checks that blank and solution grids match. Testing actual mismatch instead:
-        
+
         // Actually test mismatched widths between grids
         let blank2 = vec!["---".to_string(), "---".to_string()];
         let solution2 = vec!["AB".to_string(), "CD".to_string()]; // Different width
-        
+
         let result2 = validate_grid_structure(&blank2, &solution2);
         assert!(result2.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result2 {
@@ -250,7 +261,7 @@ mod tests {
     fn test_validate_grid_structure_blocked_mismatch() {
         let blank = vec!["---".to_string(), ".--".to_string()]; // Block at (1,0)
         let solution = vec!["ABC".to_string(), "DEF".to_string()]; // No block at (1,0)
-        
+
         let result = validate_grid_structure(&blank, &solution);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
@@ -266,7 +277,7 @@ mod tests {
     fn test_validate_grid_structure_invalid_chars() {
         let blank = vec!["---".to_string()];
         let solution = vec!["A\x00C".to_string()]; // Null character is invalid
-        
+
         let result = validate_grid_structure(&blank, &solution);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
@@ -281,25 +292,25 @@ mod tests {
     #[test]
     fn test_validate_clue_consistency() {
         let mut puzzle = create_test_puzzle(3, 3);
-        
+
         // Create expected clues based on grid structure
         puzzle.clues.across.insert(1, "First across".to_string());
         puzzle.clues.across.insert(4, "Second across".to_string());
         puzzle.clues.across.insert(7, "Third across".to_string());
-        
+
         puzzle.clues.down.insert(1, "First down".to_string());
         puzzle.clues.down.insert(2, "Second down".to_string());
         puzzle.clues.down.insert(3, "Third down".to_string());
-        
+
         let result = validate_clue_consistency(&puzzle);
         // This test depends on the specific grid structure and clue counting logic
         // The assertion may need adjustment based on actual expected counts
         match result {
-            Ok(()) => {}, // Success case
+            Ok(()) => {} // Success case
             Err(PuzError::InvalidClues { reason }) => {
                 // Log the reason for debugging but don't fail
                 println!("Clue validation info: {}", reason);
-            },
+            }
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
@@ -313,9 +324,9 @@ mod tests {
             "-.-".to_string(), // no across clues (isolated squares)
             "---".to_string(), // 1 across clue
         ];
-        
+
         let (across_count, down_count) = count_expected_clues(&grid);
-        
+
         // Should have 2 across clues (rows 0 and 2)
         // Should have 2 down clues (columns 0 and 2)
         assert_eq!(across_count, 2);
@@ -331,9 +342,9 @@ mod tests {
             "...".to_string(), // all blocked, no clues
             ".--".to_string(), // 1 across clue at (2,1)
         ];
-        
+
         let (across_count, down_count) = count_expected_clues(&grid);
-        
+
         // Should have 2 across clues
         // Down clues depend on vertical word patterns
         assert_eq!(across_count, 2);
@@ -359,7 +370,7 @@ mod tests {
         assert!(is_valid_puzzle_char('.'));
         assert!(is_valid_puzzle_char('!'));
         assert!(is_valid_puzzle_char('?'));
-        
+
         // Test invalid characters
         assert!(!is_valid_puzzle_char('\0'));
         assert!(!is_valid_puzzle_char('\n'));
@@ -380,12 +391,12 @@ mod tests {
     fn test_validate_puzzle_complete_valid() {
         let puzzle = create_test_puzzle(3, 3);
         let result = validate_puzzle(&puzzle);
-        
+
         // This may fail due to clue count mismatches, which is expected
         // The test verifies that validation runs without panicking
         match result {
-            Ok(()) => {}, // Success case
-            Err(PuzError::InvalidClues { .. }) => {}, // Expected for simple test puzzle
+            Ok(()) => {}                             // Success case
+            Err(PuzError::InvalidClues { .. }) => {} // Expected for simple test puzzle
             Err(e) => panic!("Unexpected validation error: {:?}", e),
         }
     }
@@ -395,7 +406,7 @@ mod tests {
     #[test]
     fn test_validate_puzzle_invalid_dimensions() {
         let puzzle = create_test_puzzle(0, 3); // Invalid width
-        
+
         let result = validate_puzzle(&puzzle);
         assert!(result.is_err());
         if let Err(PuzError::InvalidDimensions { width, height }) = result {
@@ -412,21 +423,20 @@ mod tests {
     fn test_count_expected_clues_empty() {
         let grid: Vec<String> = vec![];
         let (across_count, down_count) = count_expected_clues(&grid);
-        
+
         assert_eq!(across_count, 0);
         assert_eq!(down_count, 0);
     }
 
     /// Test single cell grid
     /// Minimal case with one cell
-    #[test] 
+    #[test]
     fn test_count_expected_clues_single_cell() {
         let grid = vec!["-".to_string()];
         let (across_count, down_count) = count_expected_clues(&grid);
-        
+
         // Single cell can't form words, so no clues expected
         assert_eq!(across_count, 0);
         assert_eq!(down_count, 0);
     }
 }
-

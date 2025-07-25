@@ -1,9 +1,12 @@
-use crate::{error::PuzError, types::Clues};
 use super::grids::{cell_needs_across_clue, cell_needs_down_clue};
+use crate::{error::PuzError, types::Clues};
 use std::collections::HashMap;
 
 /// Process clues to map them to grid positions
-pub(crate) fn process_clues(blank_grid: &[String], clue_strings: &[String]) -> Result<Clues, PuzError> {
+pub(crate) fn process_clues(
+    blank_grid: &[String],
+    clue_strings: &[String],
+) -> Result<Clues, PuzError> {
     let mut across = HashMap::new();
     let mut down = HashMap::new();
     let mut clue_index = 0;
@@ -31,8 +34,11 @@ pub(crate) fn process_clues(blank_grid: &[String], clue_strings: &[String]) -> R
                         across.insert(clue_number, clue_strings[clue_index].clone());
                         clue_index += 1;
                     } else {
-                        return Err(PuzError::InvalidClues { 
-                            reason: format!("Not enough clues provided: need across clue for position {}", clue_number) 
+                        return Err(PuzError::InvalidClues {
+                            reason: format!(
+                                "Not enough clues provided: need across clue for position {}",
+                                clue_number
+                            ),
                         });
                     }
                 }
@@ -42,8 +48,11 @@ pub(crate) fn process_clues(blank_grid: &[String], clue_strings: &[String]) -> R
                         down.insert(clue_number, clue_strings[clue_index].clone());
                         clue_index += 1;
                     } else {
-                        return Err(PuzError::InvalidClues { 
-                            reason: format!("Not enough clues provided: need down clue for position {}", clue_number) 
+                        return Err(PuzError::InvalidClues {
+                            reason: format!(
+                                "Not enough clues provided: need down clue for position {}",
+                                clue_number
+                            ),
                         });
                     }
                 }
@@ -55,8 +64,12 @@ pub(crate) fn process_clues(blank_grid: &[String], clue_strings: &[String]) -> R
 
     // Check if we have unused clues
     if clue_index < clue_strings.len() {
-        return Err(PuzError::InvalidClues { 
-            reason: format!("Too many clues provided: expected {}, got {}", clue_index, clue_strings.len()) 
+        return Err(PuzError::InvalidClues {
+            reason: format!(
+                "Too many clues provided: expected {}, got {}",
+                clue_index,
+                clue_strings.len()
+            ),
         });
     }
 

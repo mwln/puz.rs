@@ -75,4 +75,3 @@ pub struct Rebus {
 /// Constants used in puzzle parsing.
 pub(crate) const FREE_SQUARE: char = '-';
 pub(crate) const TAKEN_SQUARE: char = '.';
-

@@ -1,7 +1,15 @@
 [package]
-name = "puz_rs"
-version = "0.1.2"
+name = "puz"
+readme = "README.md"
+description = "A rust library for parsing the legacy crossword file format, .puz"
+repository = "https://github.com/mwln/puz.rs"
+keywords = ["crossword", "parser", "puz", "puzzle"]
+version = "0.1.0"
 edition = "2021"
+license = "MIT"
+
+[lib]
+name = "puz"
 
 [dependencies]
 byteorder = "1.4.3"
