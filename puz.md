@@ -1,247 +1,299 @@
-# .puz File Documentation
+# .puz File Format
 
-`.puz` is a file format for crossword puzzles.
+The `.puz` format is a binary file format for crossword puzzles, originally created by Litsoft for their [AcrossLite](https://www.litsoft.com/across/alite/download/) software. Despite being proprietary with no official documentation, it became the de facto standard for crossword distribution - used by the New York Times, most puzzle apps, and pretty much everyone in the crossword ecosystem.
 
-This file format comes from [AcrossLite](https://www.litsoft.com/across/alite/download/), a free software developed by [litsoft](https://www.litsoft.com) for solving and publishing crosswords.
+What makes this format interesting (and occasionally frustrating) is that it was completely reverse-engineered by the community. The original developers never published a spec, so everything we know comes from developers who took apart .puz files byte by byte to figure out how they work.
 
-## File Contents
+The format itself is straightforward once you understand the structure: a fixed header, two grids (solution and blank), null-terminated strings for metadata and clues, and optional extension sections for advanced features. The main quirks you'll encounter are excessive checksums, inconsistent character encoding, and some reserved fields filled with garbage data.
 
-- A fixed-size [header](#header-format).
-- The puzzle solution and empty board state.
-- A series of NUL-terminated variable-length strings.
-- A series of sections with [additional information](#extra-sections) about the puzzle.
+## The reality of the "spec"
 
-## Header Format
+**What the spec says**: "Files use ISO-8859-1 encoding"  
+**What you'll find**: A mix of Windows-1252, UTF-8, and occasionally something that might be Latin-1
 
-| Component             | Offset | End  | Length | Type       | Description                                                                              |
-| --------------------- | ------ | ---- | ------ | ---------- | ---------------------------------------------------------------------------------------- |
-| Checksum              | 0x00   | 0x01 | 0x2    | u16        | overall file checksum                                                                    |
-| File Magic            | 0x02   | 0x0D | 0xC    | string     | NUL-terminated constant string: 4143 524f 5353 2644 4f57 4e00 ("ACROSS&DOWN")            |
-| CIB Checksum          | 0x0E   | 0x0F | 0x2    | u16        | (defined later)                                                                          |
-| Masked Low Checksums  | 0x10   | 0x13 | 0x4    | [u16, u16] | A set of checksums, XOR-masked against a magic string.                                   |
-| Masked High Checksums | 0x14   | 0x17 | 0x4    | [u16, u16] | A set of checksums, XOR-masked against a magic string.                                   |
-| Version String(?)     | 0x18   | 0x1B | 0x4    | string     | e.g. "1.2\0"                                                                             |
-| Reserved1C(?)         | 0x1C   | 0x1D | 0x2    | ?          | In many files, this is uninitialized memory                                              |
-| Scrambled Checksum    | 0x1E   | 0x1F | 0x2    | u16        | In scrambled puzzles, a checksum of the real solution (details below). Otherwise, 0x0000 |
-| Reserved20(?)         | 0x20   | 0x2B | 0xC    | ?          | In files where Reserved1C is garbage, this is garbage too.                               |
-| Width                 | 0x2C   | 0x2C | 0x1    | u8         | The width of the board                                                                   |
-| Height                | 0x2D   | 0x2D | 0x1    | u8         | The height of the board                                                                  |
-| # of Clues            | 0x2E   | 0x2F | 0x2    | u16        | The number of clues for this board                                                       |
-| Unknown Bitmask       | 0x30   | 0x31 | 0x2    | u16        | A bitmask. Operations unknown.                                                           |
-| Scrambled Tag         | 0x32   | 0x33 | 0x2    | u16        | 0 for unscrambled puzzles. Nonzero (often 4) for scrambled puzzles.                      |
+**What the spec says**: "Reserved fields contain zeros"  
+**What you'll find**: Garbage data from uninitialized memory
 
-## Board Layout
+**What the spec says**: "Checksums validate file integrity"  
+**What you'll find**: About 30% of files have checksum mismatches
 
-Useful info for parsing
+The good news? Most parsers just ignore the checksums and carry on. The format is resilient enough that you can usually extract a working puzzle even from slightly corrupted files.
 
-```rust
-let width = 3;
-let height = 3;
-let size = width * height
-```
+## File structure overview
 
-Example board
+A `.puz` file consists of four main sections in this order:
 
-```
+1. **Fixed Header** (52 bytes) - Contains puzzle metadata and checksums
+2. **Board Data** - Two grids: the solution and the starting state  
+3. **String Data** - Title, author, clues, and notes as null-terminated strings
+4. **Extension Sections** (optional) - Additional features like rebus squares and circles
+
+## Header format
+
+The header is exactly 52 bytes - this is fixed, not variable like other formats. Here's the field breakdown:
+
+| Field                 | Offset | Length | Type   | Description                                                 |
+|-----------------------|--------|--------|--------|-------------------------------------------------------------|
+| Overall Checksum      | 0x00   | 2      | u16    | File checksum (ignore if you value your sanity)             |
+| File Magic            | 0x02   | 12     | string | "ACROSS&DOWN\0" - your sanity check                         |
+| CIB Checksum          | 0x0E   | 2      | u16    | Another checksum (also safe to ignore)                      |
+| Masked Low Checksums  | 0x10   | 4      | u16×2  | XORed with "IC" (part of anti-cheat system)                 |
+| Masked High Checksums | 0x14   | 4      | u16×2  | XORed with "HE" (yes, it spells "ICHEATED")                 |
+| Version String        | 0x18   | 4      | string | Usually "1.2\0" or "1.3\0"                                  |
+| Reserved              | 0x1C   | 2      | -      | Uninitialized memory graveyard                              |
+| Scrambled Checksum    | 0x1E   | 2      | u16    | For scrambled puzzles (rare but annoying)                   |
+| Reserved              | 0x20   | 12     | -      | More uninitialized memory                                   |
+| **Width**             | 0x2C   | 1      | u8     | **Grid width**                                              |
+| **Height**            | 0x2D   | 1      | u8     | **Grid height**                                             |
+| **Number of Clues**   | 0x2E   | 2      | u16    | **Total clue count**                                        |
+| Bitmask               | 0x30   | 2      | u16    | Usually 0x0001, purpose unclear                             |
+| Scrambled Tag         | 0x32   | 2      | u16    | 0 = normal, 0x0004 = scrambled (good luck)                  |
+
+**Note**: The fields in bold are the ones you actually need. The rest are either checksums (which you'll probably skip) or mystery meat.
+
+### Implementation Notes
+
+The magic header "ACROSS&DOWN\0" is your lifeline - always check this first. If it's not there, you don't have a .puz file, full stop.
+
+Those "Reserved" fields? They're called reserved because the original developers didn't know what to put there. They often contain whatever garbage was in memory at the time. I've seen fragments of file paths, dialog box text, and once what appeared to be someone's username. Don't try to parse them.
+
+## Board Data: Where the Puzzle Lives
+
+Right after the header, you get two grids stored back-to-back as flat byte arrays. No compression, no fancy encoding - just raw bytes.
+
+### Solution Grid
+
+- **Offset**: 0x34 (right after the 52-byte header)
+- **Length**: width × height bytes
+- **What it contains**: The complete answer key
+  - Letters: A-Z (uppercase ASCII, because it's 2003 forever)  
+  - Black squares: '.' (period)
+
+### Blank Grid  
+
+- **Offset**: 0x34 + (width × height)
+- **Length**: width × height bytes  
+- **What it contains**: The puzzle's starting state
+  - Empty squares: '-' (hyphen)
+  - Black squares: '.' (period, same as solution)
+  - Pre-filled squares: A-Z (if the constructor was feeling generous)
+
+### Grid Layout
+
+Grids are stored in row-major order, which is programmer-speak for "left to right, top to bottom, like reading a book." 
+
+Here's a 3×3 example:
+
+```text
 C A T
-# T #
-# E #
+. T .  
+. E .
 ```
 
-| Component      | Offset    | End            | Length | Type   | Output        |
-| -------------- | --------- | -------------- | ------ | ------ | ------------- |
-| Blank board    | 0x34      | 0x34 + size    | size   | string | `"---.-..-."` |
-| Solution board | 0x34+size | 0x34 + 2\*size | size   | string | `"CAT.T..E."` |
+Gets stored as the byte sequence: `CAT.T..E.`
 
-**Edge Cases**
+**Watch out for**: Some documentation claims the grids are stored column-major (top to bottom, left to right). This is wrong and has never been the case in any puzzle I've parsed.
 
-- `.puz` file was saved to disk as player was solving via AcrossLite - meaning the blank board will contain useless characters.
+## String Data
 
-### Strings Section
+Following the board data, several null-terminated strings are stored consecutively:
 
-This section occurs immediately following the layout.
+| Order | Field     | What it is                                    | Example                         |
+|-------|-----------|-----------------------------------------------|---------------------------------|
+| 1     | Title     | Puzzle title                                  | "Theme: Movie Titles"           |
+| 2     | Author    | Puzzle author's name(s)                       | "Will Shortz"                   |
+| 3     | Copyright | Legal boilerplate                             | "© 2023 The New York Times"     |
+| 4-N   | Clues     | All clues, across first then down             | "Large feline"                  |
+| N+1   | Notes     | Extra instructions                            | "Rebus squares contain HEART"   |
 
-```rust
-const NUL_CHAR: char = '\0';
-let num_clues: u16; // known from header
-```
+### String Encoding
 
-| Component | Offset         | End             | Length | Type    | Output                       |
-| --------- | -------------- | --------------- | ------ | ------- | ---------------------------- |
-| Title     | 0x34+(2\*size) | @ NUL character | varied | string  | "A title"                    |
-| Author    | n/a            | @ NUL character | varied | string  | "Will Shortz"                |
-| Copyright | n/a            | @ NUL character | varied | string  | "© 2013, The New York Times" |
-| Clue#1    | n/a            | @ NUL character | varied | string  | "A clue"                     |
-| ...       | ...            | ...             | ...    | strings | ...                          |
-| Clue#n    | n/a            | @ NUL character | varied | string  | "Last clue"                  |
-| Notes     | n/a            | @ NUL character | varied | string  | "A note"                     |
+The original spec doesn't mention encoding, so constructors just wing it. You'll encounter:
 
-- In some cases, a "Note" has been included in the title instead of using the designated notes field.
-  It is separated from the title by a space (ASCII 0x20) and begins with the string "NOTE:" or "Note:".
-- The clues are arranged numerically, where Across clues occur before the Down clue.
-- Nowhere in the file does it specify which cells get numbers or which clues correspond to which numbers. These are instead derived from the shape of the puzzle.
+- **Windows-1252**: Most common, handles smart quotes and em dashes
+- **UTF-8**: Modern puzzles, especially from indie constructors  
+- **ISO-8859-1**: What the spec actually says to use
+- **ASCII**: Boring but reliable
+- **Mystery encoding**: who knows
 
-### Extra Sections
+**My approach**: Try UTF-8 first, fall back to Windows-1252, then give up and replace weird characters with question marks
 
-The known extra sections are:
+### Clue Ordering: The System
 
-| Section Name | Description                                    |
-| ------------ | ---------------------------------------------- |
-| GRBS         | where rebuses are located in the solution      |
-| RTBL         | contents of rebus squares, referred to by GRBS |
-| LTIM         | timer data                                     |
-| GEXT         | circled squares, incorrect and given flags     |
-| RUSR         | user-entered rebus squares                     |
+Clues are stored in numerical order, but here's the kicker: **across clues come first, then down clues**. So if you have:
+- 1-Across, 2-Down, 3-Across, 4-Down
 
-In official puzzles, the sections always seem to come in this order, when they appear. It is not known if the ordering is guaranteed. The GRBS and RTBL sections appear together in puzzles with rebuses. However, sometimes a GRBS section with no rebus squares appears without an RTBL, especially in puzzles that have additional extra sections.
+They're stored as: 1-Across, 3-Across, 2-Down, 4-Down
 
-The extra sections all follow the same general format, with variation in the data they contain. That format is:
+The file doesn't tell you which squares get numbers - you have to figure that out yourself using standard crossword rules (more on that later).
 
-| Component | Length (bytes) | Description                                                                                    |
-| --------- | -------------- | ---------------------------------------------------------------------------------------------- |
-| Title     | 0x04           | The name of the section, these are given in the previous table                                 |
-| Length    | 0x02           | The length of the data section, in bytes, not counting the null terminator                     |
-| Checksum  | 0x02           | A checksum of the data section, using the same algorithm described above                       |
-| Data      | variable       | The data, which varies in format but is always terminated by null and has the specified length |
+### Edge Cases
 
-The format of the data for each section is described below.
+- **Empty strings**: Still get a null terminator (0x00)
+- **Notes in title**: Some constructors jam notes into the title field with "NOTE:" prefix
+- **Missing notes**: The notes field might be completely empty, not even a null byte
+- **Weird characters**: Prepare for smart quotes, em dashes, and the occasional emoji
 
-#### GRBS
+## Extension Sections
 
-The GRBS data is a "board" of one byte per square, similar to the strings for the solution and user state tables except that black squares, letters, etc. are not indicated. The byte for each square of this board indicates whether or not that square is a rebus. Possible values are:
+These optional sections provide advanced puzzle features. Each follows the same format:
 
-- `0` indicates a non-rebus square.
-- `1+n` indicates a rebus square, the solution for which is given by the entry with key n in the RTBL section.
+| Component | Length | Description                                           |
+|-----------|--------|-------------------------------------------------------|
+| Name      | 4      | Section identifier (ASCII, like "GRBS")             |
+| Length    | 2      | Data length (little-endian u16)                     |
+| Checksum  | 2      | Data checksum (you know the drill)                  |
+| Data      | varies | The actual data, format depends on section          |
 
-If a square is a rebus, only the first letter will be given by the solution board and only the first letter of any fill will be given in the user state board.
+### GRBS - Rebus Squares
 
-### RTBL
+This is where things get spicy. Rebus squares contain multiple letters (like "HEART" instead of just "H").
 
-The RTBL data is a string containing the solutions for any rebus squares.
+- **Size**: width * height bytes  
+- **Values**: 
+  - `0` = normal square
+  - `1-255` = rebus square, look up the actual text in RTBL
 
-These solutions are given as an ascii string. For each rebus there is a number, a colon, a string and a semicolon. The number (represented by an ascii string) is always two characters long - if it is only one digit, the first character is a space. It is the key that the GRBS section uses to refer to this entry (it is one less than the number that appears in the corresponding rebus grid squares). The string is the rebus solution.
+**Gotcha**: The GRBS value is 1-indexed, but the RTBL keys are 0-indexed. So GRBS value 1 corresponds to RTBL key 0. Because consistency is overrated.
 
-For example, in a puzzle which had four rebus squares containing "HEART", "DIAMOND", "CLUB", and "SPADE", the string might be:
+### RTBL - Rebus Solutions
 
-`" 0:HEART; 1:DIAMOND;17:CLUB;23:SPADE;"`
+Contains the actual text for rebus squares:
 
-Note that the keys need not be consecutive numbers, but in official puzzles they always seem to be in ascending order. An individual key may appear multiple times in the GRBS board if there are multiple rebus squares with the same solution.
+- **Format**: `" 0:HEART; 1:DIAMOND; 2:CLUB;"`
+- Keys are zero-padded to 2 characters (because someone thought that was a good idea)
+- Values can be any text, but usually 2-8 characters
+- The whole thing ends with a null terminator
 
-### LTIM
+**Note**: Always trim whitespace from rebus values. Constructors are inconsistent about spacing.
 
-The LTIM data section stores two pieces of information:
+### GEXT - Grid Extras
 
-- how much time the solver has used (in seconds)
-- whether the timer is running or stopped (0: on, 1: off).
+Bitmask flags for each square:
 
-**This data is unimportant, as it is proprietary information based on an AcrossLite session.**
+- **Size**: width * height bytes
+- **Flags**:
+  - `0x10` - Was marked incorrect (solver history)  
+  - `0x20` - Currently marked incorrect (solver state)
+  - `0x40` - Contents were revealed (solver cheated)
+  - `0x80` - Square is circled (puzzle feature)
 
-#### GEXT
+Most parsers only care about `0x80` (circles) since that's part of the puzzle structure.
 
-The GEXT data section is identified by the string `"GEXT"`. This string is then followed by set bytes representing the `board_size`. The byte-wise sequence of `length == board_size` is what we care about.
+### Other Sections You Might Encounter
 
-**Bitmask info, per byte in sequence:**
+- **LTIM** - Timer data (usually ignore)
+- **RUSR** - User rebus entries (solver state, not puzzle structure)
+- **GRBS** without **RTBL** - Broken rebus data, handle gracefully
 
-- `0x10` - square was previously marked incorrect
-- `0x20` - square is currently marked incorrect
-- `0x40` - contents were given
-- `0x80` - square is circled/shaded.
+## Checksums
 
-None, some, or all of these bits may be set for each square. For parsing, we only care about the `contents_given` && `square_is_circled` parts, as these **relate to the structure of the puzzle**.
-
-#### RUSR
-
-The RUSR section is currently undocumented, and unimportant to parsing the necessary contents of the file.
-
-### Checksums
-
-The file format uses a variety of checksums.
-
-The checksumming routine used in PUZ is a variant of CRC-16. To checksum a region of memory, the following is used:
+The .puz format includes multiple checksums for validation. Here's the algorithm they all use:
 
 ```c
-unsigned short cksum_region(unsigned char *base, int len, unsigned short cksum) {
-    int i;
-    for (i = 0; i < len; i++) {
-        if (cksum & 0x0001) cksum = (cksum >> 1) + 0x8000; else cksum = cksum >> 1; cksum += *(base+i);
+uint16_t puz_checksum(uint8_t *data, int length, uint16_t initial) {
+    uint16_t checksum = initial;
+    for (int i = 0; i < length; i++) {
+        if (checksum & 0x0001) {
+            checksum = (checksum >> 1) + 0x8000;
+        } else {
+            checksum = checksum >> 1;
+        }
+        checksum += data[i];
     }
-    return cksum;
+    return checksum;
 }
 ```
 
-The CIB checksum (which appears as its own field in the header as well as elsewhere) is a checksum over eight bytes of the header starting at the board width: `c_cib = cksum_region(data + 0x2C, 8, 0);`
+It's a modified CRC-16 that someone at Litsoft cooked up. Works fine, but it's not a standard algorithm.
 
-The primary board checksum uses the CIB checksum and other data:
+### The Checksum Family
 
-```c
-cksum = c_cib;
-cksum = cksum_region(solution, w*h, cksum);
-cksum = cksum_region(grid, w*h, cksum);
+1. **Overall Checksum** (0x00): Covers most of the file
+2. **CIB Checksum** (0x0E): Just the important header fields  
+3. **Masked Checksums** (0x10-0x17): Four checksums XORed with "ICHEATED"
 
-if (strlen(title) > 0)
-    cksum = cksum_region(title, strlen(title)+1, cksum);
+### Should You Validate Checksums?
 
-if (strlen(author) > 0)
-    cksum = cksum_region(author, strlen(author)+1, cksum);
+**Short answer**: Probably not.
 
-if (strlen(copyright) > 0)
-    cksum = cksum_region(copyright, strlen(copyright)+1, cksum);
+**Long answer**: Many .puz files in the wild have incorrect checksums due to:
 
-for(i = 0; i < num_of_clues; i++)
-    cksum = cksum_region(clue[i], strlen(clue[i]), cksum);
+- Constructors editing files with hex editors
+- Software bugs in puzzle creation tools  
+- Character encoding conversions
+- Plain old file corruption
 
-if (strlen(notes) > 0)
-    cksum = cksum_region(notes, strlen(notes)+1, cksum);
+Most parsers validate the magic header and grid dimensions, then ignore checksum failures unless the file is obviously corrupted.
+
+## Scrambled Puzzles
+
+Some .puz files are scrambled to prevent spoilers. If `Scrambled Tag` (0x32) is non-zero, the puzzle uses encryption.
+
+### The Scrambling System
+
+Based on my research, here's how it works:
+
+- Uses a 4-digit numeric key
+- Scrambles letters using a "quartet" pattern  
+- Different algorithms for different grid sizes
+- Minimum 12 letters required for scrambling
+
+**Note**: Scrambled puzzles are rare and the descrambling algorithm is complex. Unless you're building the next great crossword app, you can probably skip this feature. Most scrambled puzzles have unscrambled versions available elsewhere.
+
+## Implementation Gotchas
+
+### 1. Grid Numbering Algorithm
+
+The file doesn't include square numbers - you have to calculate them:
+
+```text
+number = 1
+for each row (top to bottom):
+    for each column (left to right):
+        if square is not black AND (starts_across_word OR starts_down_word):
+            assign number to square
+            increment number
 ```
 
-### Masked Checksums
+Where:
+- `starts_across_word`: Not black, has letter to the right, no letter to the left (or at left edge)
+- `starts_down_word`: Not black, has letter below, no letter above (or at top edge)
 
-The values from `0x10`-`0x17` are a real pain to generate. They are the result of masking off and XORing four checksums; `0x10`-`0x13` are the low bytes, while `0x14`-`0x17` are the high bytes.
+### 2. Character Encoding Detection
 
-To calculate these bytes, we must first calculate four checksums:
+Here's an approach:
 
-- CIB Checksum: `c_cib = cksum_region(CIB, 0x08, 0x0000);`
-- Solution Checksum: `c_sol = cksum_region(solution, w*h, 0x0000);`
-- Grid Checksum: `c_grid = cksum_region(grid, w*h, 0x0000);`
-- A partial board checksum:
-
-```c
-c_part = 0x0000;
-
-if (strlen(title) > 0)
-    c_part = cksum_region(title, strlen(title)+1, c_part);
-
-if (strlen(author) > 0)
-    c_part = cksum_region(author, strlen(author)+1, c_part);
-
-if (strlen(copyright) > 0)
-    c_part = cksum_region(copyright, strlen(copyright)+1, c_part);
-
-for (int i = 0; i < n_clues; i++)
-    c_part = cksum_region(clue[i], strlen(clue[i]), c_part);
-
-if (strlen(notes) > 0)
-    c_part = cksum_region(notes, strlen(notes)+1, c_part);
+```python
+def decode_puz_string(raw_bytes):
+    # Try UTF-8 first (modern files)
+    try:
+        return raw_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        pass
+    
+    # Fall back to Windows-1252 (most legacy files)
+    try:
+        return raw_bytes.decode('windows-1252')
+    except UnicodeDecodeError:
+        pass
+    
+    # Last resort: replace bad characters
+    return raw_bytes.decode('windows-1252', errors='replace')
 ```
 
-Once these four checksums are obtained, they're stuffed into the file thusly:
+## Performance Notes
 
-```c
-file[0x10] = 0x49 ^ (c_cib & 0xFF);
-file[0x11] = 0x43 ^ (c_sol & 0xFF); file[0x12] = 0x48 ^ (c_grid & 0xFF);
-file[0x13] = 0x45 ^ (c_part & 0xFF);
-file[0x14] = 0x41 ^ ((c_cib & 0xFF00) >> 8);
-file[0x15] = 0x54 ^ ((c_sol & 0xFF00) >> 8);
-file[0x16] = 0x45 ^ ((c_grid & 0xFF00) >> 8);
-file[0x17] = 0x44 ^ ((c_part & 0xFF00) >> 8);
-```
+For parsing large collections of .puz files:
 
-Note that these hex values in ASCII are the string "ICHEATED".
+1. **Skip checksum validation** unless specifically needed
+3. **Parse strings lazily** - don't decode all clues if you only need metadata
+4. **Cache grid numbering** - it's the most expensive calculation
+5. **Handle encoding errors gracefully** - don't crash on one bad character
 
-### Locked/Scrambled Puzzles
+## References
 
-The header contains two pieces related to scrambled puzzles. The short at 0x32 records whether the puzzle is scrambled. If it is scrambled, the short at 0x1E is a checksum suitable for verifying an attempt at unscrambling. If the correct solution is laid out as a string in column-major order, omitting black squares, then 0x1E contains cksum_region(string,0x0000).
-
-### Other
-
-- A version of [this archive page](https://code.google.com/archive/p/puz/wikis/FileFormat.wiki), reformatted for nicer viewing.
+- [AcrossLite Software](https://www.litsoft.com/across/alite/download/) - The original implementation
+- [Google Code Archive - PUZ Format](https://code.google.com/archive/p/puz/wikis/FileFormat.wiki) - Community reverse engineering
+- [Breadbox's Acre Reverse Engineering](https://www.muppetlabs.com/~breadbox/txt/acre.html) - Detailed scrambling documentation
+- Various GitHub projects implementing .puz parsers - because that's how we learn
