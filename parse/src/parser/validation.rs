@@ -214,8 +214,8 @@ mod tests {
     /// All rows within a grid must have the same width
     #[test]
     fn test_validate_grid_structure_width_mismatch() {
-        let _blank = vec!["---".to_string(), "--".to_string()]; // Second row shorter
-        let _solution = vec!["ABC".to_string(), "DE".to_string()]; // Second row shorter
+        let _blank = ["---".to_string(), "--".to_string()]; // Second row shorter
+        let _solution = ["ABC".to_string(), "DE".to_string()]; // Second row shorter
 
         // Note: The current validation logic doesn't actually check for consistent widths within grids
         // It only checks that blank and solution grids match. Testing actual mismatch instead:
@@ -287,9 +287,9 @@ mod tests {
             Ok(()) => {} // Success case
             Err(PuzError::InvalidClues { reason }) => {
                 // Log the reason for debugging but don't fail
-                println!("Clue validation info: {}", reason);
+                println!("Clue validation info: {reason}");
             }
-            Err(e) => panic!("Unexpected error: {:?}", e),
+            Err(e) => panic!("Unexpected error: {e:?}"),
         }
     }
 
@@ -375,7 +375,7 @@ mod tests {
         match result {
             Ok(()) => {}                             // Success case
             Err(PuzError::InvalidClues { .. }) => {} // Expected for simple test puzzle
-            Err(e) => panic!("Unexpected validation error: {:?}", e),
+            Err(e) => panic!("Unexpected validation error: {e:?}"),
         }
     }
 

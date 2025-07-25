@@ -1,6 +1,10 @@
 use std::{error::Error as StdError, fmt, io};
 
-/// Warnings that can occur during parsing but don't prevent puzzle creation
+/// Warnings that can occur during parsing but don't prevent puzzle creation.
+///
+/// These indicate non-critical issues that were encountered during parsing
+/// but were handled gracefully. The parsing can continue and produce a valid
+/// puzzle, but some information might be missing or using fallback values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PuzWarning {
     /// An optional extension section was skipped due to parsing issues
@@ -13,10 +17,15 @@ pub enum PuzWarning {
     ScrambledPuzzle { version: String },
 }
 
-/// Result type for parsing that includes warnings
+/// Result type for parsing that includes warnings.
+///
+/// This is returned by the main [`parse`](crate::parse) function and contains
+/// both the successfully parsed puzzle and any warnings that occurred during parsing.
 #[derive(Debug)]
 pub struct ParseResult<T> {
+    /// The successfully parsed puzzle
     pub result: T,
+    /// Any warnings that occurred during parsing
     pub warnings: Vec<PuzWarning>,
 }
 
@@ -38,6 +47,9 @@ impl<T> ParseResult<T> {
 }
 
 /// Errors that can occur when parsing a .puz file.
+///
+/// These represent critical issues that prevent successful parsing of the puzzle.
+/// Unlike [`PuzWarning`], these errors cause parsing to fail completely.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PuzError {
     /// The file magic header is invalid

@@ -1,12 +1,12 @@
-use puz::parse;
+use puz_parse::parse;
 use std::{fs::File, io::ErrorKind};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = "examples/data/rebus.puz";
-    let file = match File::open(&path) {
+    let file = match File::open(path) {
         Err(err) => match err.kind() {
             ErrorKind::NotFound => panic!("File not found at path: {}", &path),
-            other_error => panic!("Problem opening the file: {:?}", other_error),
+            other_error => panic!("Problem opening the file: {other_error:?}"),
         },
         Ok(file) => file,
     };
@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Print any warnings
     for warning in &result.warnings {
-        println!("Warning: {}", warning);
+        println!("Warning: {warning}");
     }
 
     // Pretty print the puzzle info
@@ -31,18 +31,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Print some sample clues
     println!("\nSample across clues:");
     for (num, clue) in puzzle.clues.across.iter().take(3) {
-        println!("  {}: {}", num, clue);
+        println!("  {num}: {clue}");
     }
 
     println!("\nSample down clues:");
     for (num, clue) in puzzle.clues.down.iter().take(3) {
-        println!("  {}: {}", num, clue);
+        println!("  {num}: {clue}");
     }
 
     if let Some(rebus) = &puzzle.extensions.rebus {
         println!("\nRebus entries found: {}", rebus.table.len());
         for (key, value) in &rebus.table {
-            println!("  {}: {}", key, value);
+            println!("  {key}: {value}");
         }
     }
 

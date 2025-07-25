@@ -1,0 +1,42 @@
+name: security audit
+on:
+  schedule:
+    - cron: '0 0 * * 0' # weekly on sunday
+  push:
+    branches: [main]
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+  workflow_dispatch:
+jobs:
+  audit:
+    name: security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: security audit
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+  
+  outdated:
+    name: dependency status
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: cache cargo tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "audit-tools"
+          cache-targets: false
+          cache-all-crates: true
+      - name: install cargo-outdated
+        run: cargo install --locked cargo-outdated
+      - name: check for outdated dependencies
+        run: cargo outdated --exit-code 1

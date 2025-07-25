@@ -1,37 +1,27 @@
-# puz
+# puz.rs
 
-A Rust library for parsing `.puz` crossword puzzle files.
+A rust workspace for interacting with `.puz` crossword puzzle files.
 
-## Installation
+## Structure
 
-```toml
-[dependencies]
-puz = "0.1.0"
-```
+- **[`parse/`](parse/)** - core parsing library (`puz-parse` crate)
+- **[`cli/`](cli/)** - cli tool for processing files (`puz` crate)
 
-## Usage
+## Quick Start
 
-```rust
-use std::fs::File;
-use puz::parse;
+For detailed installation and usage instructions, see the individual package READMEs:
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open("puzzle.puz")?;
-    let result = parse(file)?;
-    let puzzle = result.result;
+- **library**: See [parse/README.md](parse/README.md) for complete API documentation and examples
+- **cli**: See [cli/README.md](cli/README.md) for command-line interface options
 
-    println!("Title: {}", puzzle.info.title);
-    println!("Author: {}", puzzle.info.author);
-    println!("Size: {}x{}", puzzle.info.width, puzzle.info.height);
-    
-    for (num, clue) in &puzzle.clues.across {
-        println!("{} Across: {}", num, clue);
-    }
+## Features
 
-    Ok(())
-}
-```
+- Complete `.puz` file format parsing
+- Support for rebus squares, circles, and other extensions
+- JSON serialization support
+- Memory-safe, zero-copy parsing where possible
+- Comprehensive error handling with warnings
 
-## License
+## File Format
 
-MIT
+The library parses the binary `.puz` format used by crossword applications like AcrossLite. See `PUZ.md` for complete format documentation.
