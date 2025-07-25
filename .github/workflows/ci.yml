@@ -12,7 +12,6 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -Dwarnings
-  MSRV: "1.78.0"
 jobs:
   test:
     name: test
@@ -25,7 +24,7 @@ jobs:
         rust: [stable, beta]
         include:
           - os: ubuntu-latest
-            rust: ${{ env.MSRV }}
+            rust: "1.78.0"
     steps:
       - uses: actions/checkout@v4
       - name: install rust
