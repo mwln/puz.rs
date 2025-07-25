@@ -132,8 +132,6 @@ jobs:
       - name: cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "ci-cache"
-        with:
           key: ${{ matrix.target }}
       - name: test cross-compilation
         run: cargo check --target ${{ matrix.target }} --workspace
