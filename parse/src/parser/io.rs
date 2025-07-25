@@ -358,7 +358,7 @@ mod tests {
 
         for (byte_val, expected_char) in test_cases {
             let result = windows_1252_to_char(byte_val);
-            assert_eq!(result, expected_char, "Failed for byte {}", byte_val);
+            assert_eq!(result, expected_char, "Failed for byte {byte_val}");
         }
     }
 

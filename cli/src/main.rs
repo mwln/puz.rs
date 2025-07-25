@@ -63,7 +63,7 @@ fn main() -> Result<()> {
                 });
             }
             Err(e) => {
-                eprintln!("Error processing {}: {}", file_path, e);
+                eprintln!("Error processing {file_path}: {e}");
                 results.push(PuzzleResult {
                     file: file_path.to_string(),
                     success: false,
@@ -97,7 +97,7 @@ fn main() -> Result<()> {
     match output_file {
         Some(path) => {
             std::fs::write(path, json_output)
-                .with_context(|| format!("Failed to write to {}", path))?;
+                .with_context(|| format!("Failed to write to {path}"))?;
         }
         None => {
             io::stdout()
@@ -121,13 +121,13 @@ fn process_file(path: &str) -> Result<puz_parse::Puzzle> {
         anyhow::bail!("Path is not a file: {}", path);
     }
 
-    let file = File::open(file_path).with_context(|| format!("Failed to open file: {}", path))?;
+    let file = File::open(file_path).with_context(|| format!("Failed to open file: {path}"))?;
 
-    let result = parse(file).with_context(|| format!("Failed to parse .puz file: {}", path))?;
+    let result = parse(file).with_context(|| format!("Failed to parse .puz file: {path}"))?;
 
     // Print warnings to stderr
     for warning in &result.warnings {
-        eprintln!("Warning in {}: {}", path, warning);
+        eprintln!("Warning in {path}: {warning}");
     }
 
     Ok(result.result)

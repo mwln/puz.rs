@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle any warnings
     for warning in &result.warnings {
-        println!("Warning: {}", warning);
+        println!("Warning: {warning}");
     }
     println!();
 
@@ -28,12 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Working with Clues ===");
     println!("Across clues:");
     for (num, clue) in puzzle.clues.across.iter().take(5) {
-        println!("  {}: {}", num, clue);
+        println!("  {num}: {clue}");
     }
 
     println!("Down clues:");
     for (num, clue) in puzzle.clues.down.iter().take(5) {
-        println!("  {}: {}", num, clue);
+        println!("  {num}: {clue}");
     }
     println!();
 
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(rebus) = &puzzle.extensions.rebus {
         println!("Rebus found! Entries:");
         for (key, value) in &rebus.table {
-            println!("  {}: {}", key, value);
+            println!("  {key}: {value}");
         }
     } else {
         println!("No rebus in this puzzle");

@@ -262,8 +262,7 @@ mod tests {
 
             assert!(
                 header.is_scrambled,
-                "Failed to detect scrambling for tag 0x{:04X}",
-                scramble_tag
+                "Failed to detect scrambling for tag 0x{scramble_tag:04X}"
             );
         }
 

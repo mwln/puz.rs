@@ -113,7 +113,7 @@ pub fn parse<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
 /// ```
 pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
     let file = std::fs::File::open(path.as_ref()).map_err(|e| PuzError::IoError {
-        message: format!("Failed to open file: {}", e),
+        message: format!("Failed to open file: {e}"),
         kind: e.kind(),
         position: None,
     })?;
