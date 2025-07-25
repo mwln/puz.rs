@@ -1,4 +1,4 @@
-use puz::parse;
+use puz_parse::parse;
 use std::{fs::File, io::ErrorKind};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

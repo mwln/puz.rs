@@ -13,4 +13,5 @@
 
 # editors and llms
 .vscode
+.claude
 CLAUDE.md

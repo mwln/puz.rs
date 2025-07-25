@@ -1,0 +1,16 @@
+[package]
+name = "puz"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for processing .puz crossword puzzle files"
+
+[[bin]]
+name = "puz"
+path = "src/main.rs"
+
+[dependencies]
+puz-parse = { path = "../parse", features = ["json"] }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
