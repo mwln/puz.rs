@@ -90,26 +90,29 @@ jobs:
         run: cargo doc --no-deps --all --all-features
         env:
           RUSTDOCFLAGS: -D warnings
-  test-release:
-    name: test release build ${{ matrix.target }}
+  cross-compile:
+    name: cross-compile ${{ matrix.target }}
     runs-on: ubuntu-latest
     needs: [test, lint]
     if: github.event_name != 'schedule' # skip on weekly cron
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-          - target: x86_64-unknown-linux-musl
-          - target: x86_64-pc-windows-msvc
-          - target: x86_64-apple-darwin
-          - target: aarch64-apple-darwin
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
-      - name: dry-run cross-platform binary build
-        uses: rust-build/rust-build.action@v1.4.5
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          UPLOAD_MODE: artifacts # no GitHub Release, just workflow artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          targets: ${{ matrix.target }}
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: test cross-compilation
+        run: cargo check --target ${{ matrix.target }} --workspace
