@@ -2,9 +2,9 @@
 name = "puz"
 version = "0.1.1"
 edition = "2021"
-description = "CLI tool for processing .puz crossword puzzle files"
+description = "Command line application for processing and interacting with .puz crossword puzzle files"
 license = "MIT"
-homepage = "https://github.com/mwln/puz.rs"
+homepage = "https://github.com/mwln/puz.rs/tree/main/cli"
 repository = "https://github.com/mwln/puz.rs"
 rust-version = "1.78.0"
 
