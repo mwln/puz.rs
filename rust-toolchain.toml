@@ -1,0 +1,11 @@
+# Pins the Rust toolchain used for local development and any CI job that does
+# not request a specific toolchain explicitly. This keeps `cargo clippy`,
+# `cargo fmt`, and build results consistent between developer machines and CI,
+# avoiding drift where a newer clippy introduces lints that only fail in CI.
+#
+# The CI test matrix installs stable / beta / 1.78.0 (MSRV) explicitly via
+# `dtolnay/rust-toolchain`, whose explicit `toolchain:` input overrides this
+# file, so multi-version testing is preserved.
+[toolchain]
+channel = "1.97.0"
+components = ["clippy", "rustfmt"]

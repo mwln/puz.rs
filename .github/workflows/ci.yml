@@ -45,16 +45,19 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "ci-cache"
+      # Use `+${{ matrix.rust }}` on every cargo call so the matrix toolchain
+      # is honored instead of the version pinned in rust-toolchain.toml. This
+      # is what keeps the 1.78.0 (MSRV) leg of the matrix meaningful.
       - name: check compilation
-        run: cargo check --all --all-targets
+        run: cargo +${{ matrix.rust }} check --all --all-targets
       - name: run tests
-        run: cargo test --all
+        run: cargo +${{ matrix.rust }} test --all
       - name: test parse package features
         run: |
-          cargo test -p puz-parse --no-default-features
-          cargo test -p puz-parse --features json
+          cargo +${{ matrix.rust }} test -p puz-parse --no-default-features
+          cargo +${{ matrix.rust }} test -p puz-parse --features json
       - name: test cli functionality
-        run: cargo run --bin puz -- --help
+        run: cargo +${{ matrix.rust }} run --bin puz -- --help
   lint:
     name: lint
     runs-on: ubuntu-latest
@@ -90,9 +93,11 @@ jobs:
         with:
           shared-key: "ci-cache"
       - name: test minimal versions
+        # `-Z minimal-versions` requires nightly, so invoke it explicitly with
+        # `+nightly` to override the pinned toolchain in rust-toolchain.toml.
         run: |
-          cargo generate-lockfile -Z minimal-versions
-          cargo check --locked --workspace
+          cargo +nightly generate-lockfile -Z minimal-versions
+          cargo +nightly check --locked --workspace
   docs:
     name: docs
     runs-on: ubuntu-latest

@@ -5,7 +5,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = "examples/data/rebus.puz";
     let file = match File::open(path) {
         Err(err) => match err.kind() {
-            ErrorKind::NotFound => panic!("File not found at path: {}", &path),
+            ErrorKind::NotFound => panic!("File not found at path: {path}"),
             other_error => panic!("Problem opening the file: {other_error:?}"),
         },
         Ok(file) => file,
