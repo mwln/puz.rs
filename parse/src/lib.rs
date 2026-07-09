@@ -47,6 +47,7 @@
 //!
 //! - `json`: Enables JSON serialization support via serde
 
+mod checksums;
 mod encoding;
 mod error;
 mod grid;
@@ -90,6 +91,38 @@ use std::path::Path;
 /// ```
 pub fn parse<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
     parser::parse_puzzle(reader)
+}
+
+/// Parse a .puz file, requiring all stored checksums to match.
+///
+/// Unlike [`parse`], which records checksum mismatches as
+/// [`PuzWarning::ChecksumMismatch`] and continues, this returns
+/// [`PuzError::InvalidChecksum`] on the first mismatch. Use this when you need
+/// to reject files whose integrity checks fail.
+pub fn parse_strict<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
+    parser::parse_puzzle_strict(reader)
+}
+
+/// Validate the checksums of a .puz file without returning the puzzle.
+///
+/// Returns `Ok(())` if all stored checksums match the recomputed values, or
+/// [`PuzError::InvalidChecksum`] on the first mismatch (or a parse error if the
+/// data is malformed).
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use puz_parse::validate_bytes;
+///
+/// let data = std::fs::read("puzzle.puz")?;
+/// match validate_bytes(&data) {
+///     Ok(()) => println!("checksums valid"),
+///     Err(e) => eprintln!("invalid: {e}"),
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn validate_bytes(data: &[u8]) -> Result<(), PuzError> {
+    parser::parse_puzzle_strict(data).map(|_| ())
 }
 
 /// Parse a .puz file from a file path.

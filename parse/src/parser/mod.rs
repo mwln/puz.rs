@@ -21,10 +21,22 @@ use strings::parse_strings;
 use validation::validate_puzzle;
 
 pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
+    parse_puzzle_inner(reader, false)
+}
+
+/// Parse and require all stored checksums to match; a mismatch is a hard error.
+pub(crate) fn parse_puzzle_strict<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
+    parse_puzzle_inner(reader, true)
+}
+
+fn parse_puzzle_inner<R: Read>(
+    reader: R,
+    strict: bool,
+) -> Result<ParseResult<Puzzle>, PuzError> {
     let mut buf_reader = BufReader::new(reader);
     let mut warnings = Vec::new();
 
-    validate_file_magic(&mut buf_reader)?;
+    let global_cksum = validate_file_magic(&mut buf_reader)?;
     let header = parse_header(&mut buf_reader)?;
 
     if header.is_scrambled {
@@ -32,6 +44,15 @@ pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, Pu
             version: header.version.clone(),
         });
     }
+
+    // Capture stored checksums before consuming the header fields we need.
+    let stored = crate::checksums::Stored {
+        global: global_cksum,
+        cib: header.cib_cksum,
+        masked: header.masked_cksum,
+    };
+    let bitmask = header.bitmask;
+    let scrambled_tag = header.scrambled_tag;
 
     let grids = parse_grids(&mut buf_reader, header.width, header.height)?;
 
@@ -60,10 +81,36 @@ pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, Pu
         extensions,
     };
 
-    match validate_puzzle(&puzzle) {
+    validate_puzzle(&puzzle)?;
+
+    // Checksum validation: reconstruct the clue order and recompute checksums
+    // independently of the writer, then compare with the stored values.
+    let ordered_clues = crate::grid::order_clues(&puzzle.grid.blank, &puzzle.clues)?;
+    match crate::checksums::verify(
+        &puzzle.info,
+        &puzzle.grid,
+        &ordered_clues,
+        bitmask,
+        scrambled_tag,
+        &stored,
+    ) {
         Ok(()) => {}
         Err(e) => {
-            return Err(e);
+            if strict {
+                return Err(e);
+            }
+            if let PuzError::InvalidChecksum {
+                expected,
+                found,
+                context,
+            } = &e
+            {
+                warnings.push(PuzWarning::ChecksumMismatch {
+                    context: context.clone(),
+                    expected: *expected,
+                    found: *found,
+                });
+            }
         }
     }
 
