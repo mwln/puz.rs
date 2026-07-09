@@ -26,6 +26,10 @@ jobs:
   outdated:
     name: dependency status
     runs-on: ubuntu-latest
+    # "Is a dependency outdated" is periodic hygiene, not a per-change signal,
+    # and would otherwise fail PRs for unrelated upstream releases. Run it only
+    # on the weekly schedule and manual dispatch, not on push/pull_request.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - name: install rust
