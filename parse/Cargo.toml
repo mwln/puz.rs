@@ -2,7 +2,7 @@
 name = "puz-parse"
 version = "0.1.3"
 edition = "2021"
-authors = ["mwln <your-email@example.com>"]
+authors = ["mwln"]
 license = "MIT"
 description = "A Rust library for parsing .puz crossword puzzle files"
 readme = "README.md"
@@ -22,7 +22,7 @@ rust-version = "1.78.0"
 name = "puz_parse"
 
 [dependencies]
-byteorder = { workspace = true }
+byteorder = "1.4.3"
 
 [features]
 default = []
