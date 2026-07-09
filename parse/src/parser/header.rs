@@ -1,4 +1,5 @@
-use super::io::{decode_puz_string, read_bytes, read_u16, read_u8, skip_bytes};
+use super::io::{read_bytes, read_u16, read_u8, skip_bytes};
+use crate::encoding::decode_puz_string;
 use crate::error::PuzError;
 use std::io::{BufReader, Read};
 

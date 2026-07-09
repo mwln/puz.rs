@@ -147,7 +147,7 @@ fn parse_rebus(
         .collect();
 
     // Parse RTBL table: decode string and split on semicolons
-    let rtbl_str = super::io::decode_puz_string(rtbl_data)?;
+    let rtbl_str = crate::encoding::decode_puz_string(rtbl_data)?;
     let mut table = HashMap::new();
 
     for entry in rtbl_str.split(';') {

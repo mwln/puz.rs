@@ -47,6 +47,7 @@
 //!
 //! - `json`: Enables JSON serialization support via serde
 
+mod encoding;
 mod error;
 mod parser;
 mod types;
