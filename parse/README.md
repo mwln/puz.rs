@@ -1,117 +1,158 @@
-# puz
+# puz-parse
 
-A Rust library for parsing `.puz` crossword puzzle files.
+A Rust library for parsing the binary `.puz` crossword format used by
+AcrossLite and most crossword apps. It reads metadata, the solution and blank
+grids, clues, and extensions like rebus and circled squares.
 
-This library provides functionality to parse the binary `.puz` file format used by crossword puzzle applications like AcrossLite. It extracts puzzle metadata, grids, clues, and advanced features like rebus squares and circled squares.
+## Contents
 
-## Features
-
-- **Complete .puz parsing** - Extracts all puzzle data including metadata, grids, and clues
-- **Rebus support** - Handles puzzles with multi-character cell entries
-- **Circled squares** - Supports puzzles with circled cells
-- **Checksum validation** - Verifies file integrity during parsing
-- **Rich metadata** - Extracts title, author, copyright, notes, and more
-- **Pure Rust** - Memory-safe with zero-copy optimizations where possible
-- **JSON ready** - Optional serde support for serialization
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Parsing API](#parsing-api)
+- [Data model](#data-model)
+- [Warnings and errors](#warnings-and-errors)
+- [Feature flags](#feature-flags)
+- [Examples](#examples)
+- [License](#license)
 
 ## Installation
 
-Add this to your `Cargo.toml`:
+```toml
+[dependencies]
+puz-parse = "0.1"
+```
+
+To derive serde `Serialize`/`Deserialize` on the puzzle types, enable the
+`json` feature:
 
 ```toml
 [dependencies]
-puz-parse = "0.1.0"
-
-# For JSON serialization support:
-puz-parse = { version = "0.1.0", features = ["json"] }
+puz-parse = { version = "0.1", features = ["json"] }
 ```
 
-## Quick Start
+## Quick start
 
 ```rust
 use puz_parse::parse_file;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse a .puz file
+fn main() -> Result<(), puz_parse::PuzError> {
     let puzzle = parse_file("puzzle.puz")?;
-    
-    // Access puzzle information
-    println!("Title: {}", puzzle.info.title);
-    println!("Author: {}", puzzle.info.author);
-    println!("Size: {}x{}", puzzle.info.width, puzzle.info.height);
-    
-    // Access clues
-    for (num, clue) in &puzzle.clues.across {
-        println!("{} Across: {}", num, clue);
+
+    println!("{} by {}", puzzle.info.title, puzzle.info.author);
+    println!("{}x{}", puzzle.info.width, puzzle.info.height);
+
+    for (number, clue) in &puzzle.clues.across {
+        println!("{number} across: {clue}");
     }
 
     Ok(())
 }
 ```
 
-## Advanced Usage
+## Parsing API
 
-For more control over parsing and error handling:
+There are three entry points, depending on what you're parsing and how much you
+care about warnings:
+
+- `parse_file(path)` opens a file and returns a `Puzzle`. This is the
+  convenience path and discards any non-fatal warnings.
+- `parse(reader)` parses from anything implementing `Read` and returns a
+  `ParseResult<Puzzle>`, which carries both the `Puzzle` and any warnings
+  collected during parsing.
+- `parse_bytes(&[u8])` parses puzzle data already in memory and returns a
+  `Puzzle`.
+
+Reach for `parse` when you want to see warnings (for example, a recovered
+encoding issue or a skipped extension); use `parse_file` or `parse_bytes` when
+you just want the puzzle.
 
 ```rust
-use std::fs::File;
 use puz_parse::parse;
+use std::fs::File;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open("puzzle.puz")?;
+fn main() -> Result<(), puz_parse::PuzError> {
+    let file = File::open("puzzle.puz").expect("open puzzle.puz");
     let result = parse(file)?;
     let puzzle = result.result;
-    
-    // Handle any warnings that occurred during parsing
+
     for warning in &result.warnings {
-        eprintln!("Warning: {}", warning);
+        eprintln!("warning: {warning}");
     }
+
+    println!("parsed {}", puzzle.info.title);
 
     Ok(())
 }
 ```
 
-## Data Structure
+## Data model
 
-The parsed puzzle contains:
+`parse_file` (and the others) give you a `Puzzle`:
 
-- **`info`** - Metadata (title, author, dimensions, etc.)
-- **`grid`** - Solution and blank grids  
-- **`clues`** - Across and down clues by number
-- **`extensions`** - Advanced features (rebus, circles, given squares)
+```text
+Puzzle
+├── info: PuzzleInfo    title, author, copyright, notes, width, height,
+│                       version, is_scrambled
+├── grid: Grid          blank + solution, each a Vec<String> of rows
+├── clues: Clues        across + down, each a HashMap<u16, String> keyed by
+│                       clue number
+└── extensions: Extensions   rebus, circles, given (all optional)
+```
+
+Grid rows are strings of single-character cells:
+
+- `.` is a black/blocked square.
+- `-` is an empty square (in the blank grid).
+- Any letter or number is cell content.
+
+`extensions` is where the less common features live, and each is `Option`:
+
+- `rebus` holds a `Rebus` with a `grid: Vec<Vec<u8>>` marking rebus cells
+  (`0` means none) and a `table: HashMap<u8, String>` mapping each key to its
+  multi-character value.
+- `circles` is a `Vec<Vec<bool>>` marking circled cells, if the puzzle has any.
+- `given` is a `Vec<Vec<bool>>` marking cells that were pre-filled for the
+  solver, if any.
+
+## Warnings and errors
+
+Parsing distinguishes between problems it can recover from and problems it
+can't.
+
+Recoverable problems come back as `PuzWarning` values in
+`ParseResult::warnings` (only visible through `parse`). They cover cases like a
+skipped extension section, a recovered text-encoding issue, partial data
+recovery, or a scrambled puzzle.
+
+Fatal problems return `Err(PuzError)`. Variants describe what went wrong,
+including an invalid magic header, a checksum mismatch, bad dimensions, a
+section size mismatch, and I/O errors, so you can match on the specific case:
+
+```rust
+use puz_parse::{parse_file, PuzError};
+
+fn main() {
+    match parse_file("puzzle.puz") {
+        Ok(puzzle) => println!("parsed: {}", puzzle.info.title),
+        Err(PuzError::InvalidMagic { .. }) => eprintln!("not a .puz file"),
+        Err(e) => eprintln!("parse error: {e}"),
+    }
+}
+```
+
+## Feature flags
+
+- `json` (off by default) derives serde `Serialize`/`Deserialize` on `Puzzle`
+  and its component types, so a parsed puzzle can be serialized directly.
 
 ## Examples
 
-See the [examples](examples/) directory for more detailed usage examples.
+The [`examples/`](examples/) directory has runnable programs. Run one with:
 
-## File Format Support
-
-This library supports the complete `.puz` file format specification, including:
-
-- **Standard puzzles** - Basic crossword grids with clues
-- **Rebus squares** - Cells containing multiple characters  
-- **Circled squares** - Visual indicators for themed entries
-- **Puzzle extensions** - GRBS, RTBL, and GEXT sections
-- **Checksum validation** - File integrity verification
-- **Scrambled puzzles** - Puzzles with encoded solutions (read-only)
-
-## Error Handling
-
-The library provides detailed error information:
-
-```rust
-use puz_parse::parse_file;
-
-match parse_file("puzzle.puz") {
-    Ok(puzzle) => {
-        println!("Successfully parsed: {}", puzzle.info.title);
-    }
-    Err(e) => {
-        eprintln!("Parse error: {}", e);
-    }
-}
+```sh
+cargo run --example read-with-file
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Licensed under the [MIT License](../LICENSE).
