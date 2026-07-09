@@ -50,6 +50,7 @@
 mod error;
 mod parser;
 mod types;
+mod writer;
 
 pub use error::{ParseResult, PuzError, PuzWarning};
 pub use types::*;
@@ -146,4 +147,52 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
 pub fn parse_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
     let result = parse(data)?;
     Ok(result.result)
+}
+
+/// Serialize a puzzle to an in-memory `.puz` byte buffer.
+///
+/// This is the core writing function. Use [`write`] or [`write_file`] to send
+/// the bytes to a sink or file.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use puz_parse::{parse_file, to_bytes};
+///
+/// let puzzle = parse_file("puzzle.puz")?;
+/// let bytes = to_bytes(&puzzle)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn to_bytes(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
+    writer::write_puzzle(puzzle)
+}
+
+/// Write a puzzle to any type that implements `Write`.
+pub fn write<W: std::io::Write>(puzzle: &Puzzle, mut writer: W) -> Result<(), PuzError> {
+    let bytes = to_bytes(puzzle)?;
+    writer.write_all(&bytes).map_err(|e| PuzError::IoError {
+        message: format!("Failed to write puzzle: {e}"),
+        kind: e.kind(),
+        position: None,
+    })
+}
+
+/// Write a puzzle to a file path.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use puz_parse::{parse_file, write_file};
+///
+/// let puzzle = parse_file("puzzle.puz")?;
+/// write_file(&puzzle, "copy.puz")?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn write_file<P: AsRef<Path>>(puzzle: &Puzzle, path: P) -> Result<(), PuzError> {
+    let file = std::fs::File::create(path.as_ref()).map_err(|e| PuzError::IoError {
+        message: format!("Failed to create file: {e}"),
+        kind: e.kind(),
+        position: None,
+    })?;
+    write(puzzle, file)
 }
