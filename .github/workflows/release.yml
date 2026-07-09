@@ -51,7 +51,11 @@ jobs:
         with:
           bin: puz
           target: ${{ matrix.target }}
-          include: README.md,LICENSE,cli/README.md
+          # Only the CLI's own README + license. Do not include the root
+          # README.md as well: the action flattens paths, so root README.md and
+          # cli/README.md would collide as `README.md` in the archive, which
+          # `7z` (Windows) rejects as a duplicate filename.
+          include: cli/README.md,LICENSE
           checksum: sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
