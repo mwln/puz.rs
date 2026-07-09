@@ -1,13 +1,14 @@
 [package]
 name = "puz-parse"
-version = "0.1.3"
-edition = "2021"
-authors = ["mwln"]
-license = "MIT"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 description = "A Rust library for parsing .puz crossword puzzle files"
 readme = "README.md"
 homepage = "https://github.com/mwln/puz.rs"
-repository = "https://github.com/mwln/puz.rs"
 documentation = "https://docs.rs/puz-parse"
 keywords = ["crossword", "parser", "puz", "puzzle", "binary-format"]
 categories = ["parser-implementations", "encoding", "games"]
@@ -16,10 +17,12 @@ exclude = [
     "target/",
     ".git/",
 ]
-rust-version = "1.78.0"
 
 [lib]
 name = "puz_parse"
+
+[lints]
+workspace = true
 
 [dependencies]
 byteorder = "1.4.3"

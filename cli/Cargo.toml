@@ -1,20 +1,23 @@
 [package]
 name = "puz"
-version = "0.1.3"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 description = "Command line application for processing and interacting with .puz crossword puzzle files"
-license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/mwln/puz.rs/tree/main/cli"
-repository = "https://github.com/mwln/puz.rs"
 documentation = "https://github.com/mwln/puz.rs/blob/main/cli/README.md"
 keywords = ["crossword", "puz", "puzzle", "cli", "json"]
 categories = ["command-line-utilities", "games"]
-rust-version = "1.78.0"
 
 [[bin]]
 name = "puz"
 path = "src/main.rs"
+
+[lints]
+workspace = true
 
 [dependencies]
 puz-parse = { version = "0.1.3", path = "../parse", features = ["json"] }
