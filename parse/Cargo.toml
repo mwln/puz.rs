@@ -27,6 +27,13 @@ workspace = true
 [dependencies]
 byteorder = "1.4.3"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "parse"
+harness = false
+
 [features]
 default = []
 json = ["serde"]
