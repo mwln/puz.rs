@@ -94,16 +94,21 @@ fn validate_grid_consistency(
     Ok(())
 }
 
+/// Returns `true` when a cell is playable, i.e. it holds either an empty
+/// square (`FREE_SQUARE`) or letter/number content, as opposed to a blocked
+/// square (`TAKEN_SQUARE`).
+///
+/// `None` (a cell outside the grid) is treated as not playable.
+pub(crate) fn is_playable_square(cell: Option<char>) -> bool {
+    matches!(cell, Some(c) if c == FREE_SQUARE || c.is_ascii_alphanumeric())
+}
+
 pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
-        if let Some(this_char) = row_str.chars().nth(col) {
-            if this_char == FREE_SQUARE || this_char.is_ascii_alphanumeric() {
-                if let Some(next_char) = row_str.chars().nth(col + 1) {
-                    if next_char != TAKEN_SQUARE || next_char.is_ascii_alphanumeric() {
-                        return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
-                    }
-                }
-            }
+        if is_playable_square(row_str.chars().nth(col))
+            && is_playable_square(row_str.chars().nth(col + 1))
+        {
+            return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
         }
     }
     false
@@ -111,18 +116,11 @@ pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) ->
 
 pub(crate) fn cell_needs_down_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
-        if let Some(this_char) = row_str.chars().nth(col) {
-            if this_char == FREE_SQUARE || this_char.is_ascii_alphanumeric() {
-                if let Some(next_row) = grid.get(row + 1) {
-                    if let Some(next_char) = next_row.chars().nth(col) {
-                        if next_char != TAKEN_SQUARE || next_char.is_ascii_alphanumeric() {
-                            return row == 0
-                                || grid.get(row - 1).and_then(|r| r.chars().nth(col))
-                                    == Some(TAKEN_SQUARE);
-                        }
-                    }
-                }
-            }
+        if is_playable_square(row_str.chars().nth(col))
+            && is_playable_square(grid.get(row + 1).and_then(|r| r.chars().nth(col)))
+        {
+            return row == 0
+                || grid.get(row - 1).and_then(|r| r.chars().nth(col)) == Some(TAKEN_SQUARE);
         }
     }
     false
@@ -325,6 +323,31 @@ mod tests {
         // Test empty string
         let result = string_to_grid("", 1);
         assert_eq!(result, Vec::<String>::new());
+    }
+
+    /// Test is_playable_square helper
+    /// A cell is playable when it is an empty square or letter/number content,
+    /// but not a blocked square or off the grid.
+    #[test]
+    fn test_is_playable_square() {
+        // Empty square is playable
+        assert!(is_playable_square(Some(FREE_SQUARE)));
+
+        // Letters and numbers are playable
+        assert!(is_playable_square(Some('A')));
+        assert!(is_playable_square(Some('z')));
+        assert!(is_playable_square(Some('0')));
+        assert!(is_playable_square(Some('9')));
+
+        // Blocked square is not playable
+        assert!(!is_playable_square(Some(TAKEN_SQUARE)));
+
+        // Other non-alphanumeric characters are not playable
+        assert!(!is_playable_square(Some(' ')));
+        assert!(!is_playable_square(Some('#')));
+
+        // A cell outside the grid is not playable
+        assert!(!is_playable_square(None));
     }
 
     /// Test cell_needs_across_clue function
