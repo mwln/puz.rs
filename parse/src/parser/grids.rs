@@ -1,8 +1,5 @@
 use super::io::read_bytes;
-use crate::{
-    error::PuzError,
-    types::{Grid, FREE_SQUARE, TAKEN_SQUARE},
-};
+use crate::{error::PuzError, grid::TAKEN_SQUARE, types::Grid};
 use std::io::{BufReader, Read};
 
 pub(crate) fn parse_grids<R: Read>(
@@ -92,38 +89,6 @@ fn validate_grid_consistency(
     }
 
     Ok(())
-}
-
-/// Returns `true` when a cell is playable, i.e. it holds either an empty
-/// square (`FREE_SQUARE`) or letter/number content, as opposed to a blocked
-/// square (`TAKEN_SQUARE`).
-///
-/// `None` (a cell outside the grid) is treated as not playable.
-pub(crate) fn is_playable_square(cell: Option<char>) -> bool {
-    matches!(cell, Some(c) if c == FREE_SQUARE || c.is_ascii_alphanumeric())
-}
-
-pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) -> bool {
-    if let Some(row_str) = grid.get(row) {
-        if is_playable_square(row_str.chars().nth(col))
-            && is_playable_square(row_str.chars().nth(col + 1))
-        {
-            return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
-        }
-    }
-    false
-}
-
-pub(crate) fn cell_needs_down_clue(grid: &[String], row: usize, col: usize) -> bool {
-    if let Some(row_str) = grid.get(row) {
-        if is_playable_square(row_str.chars().nth(col))
-            && is_playable_square(grid.get(row + 1).and_then(|r| r.chars().nth(col)))
-        {
-            return row == 0
-                || grid.get(row - 1).and_then(|r| r.chars().nth(col)) == Some(TAKEN_SQUARE);
-        }
-    }
-    false
 }
 
 #[cfg(test)]
@@ -325,150 +290,6 @@ mod tests {
         assert_eq!(result, Vec::<String>::new());
     }
 
-    /// Test is_playable_square helper
-    /// A cell is playable when it is an empty square or letter/number content,
-    /// but not a blocked square or off the grid.
-    #[test]
-    fn test_is_playable_square() {
-        // Empty square is playable
-        assert!(is_playable_square(Some(FREE_SQUARE)));
-
-        // Letters and numbers are playable
-        assert!(is_playable_square(Some('A')));
-        assert!(is_playable_square(Some('z')));
-        assert!(is_playable_square(Some('0')));
-        assert!(is_playable_square(Some('9')));
-
-        // Blocked square is not playable
-        assert!(!is_playable_square(Some(TAKEN_SQUARE)));
-
-        // Other non-alphanumeric characters are not playable
-        assert!(!is_playable_square(Some(' ')));
-        assert!(!is_playable_square(Some('#')));
-
-        // A cell outside the grid is not playable
-        assert!(!is_playable_square(None));
-    }
-
-    /// Test cell_needs_across_clue function
-    /// This determines which cells start across words
-    #[test]
-    fn test_cell_needs_across_clue() {
-        let grid = vec![
-            "---".to_string(), // Row 0: across clue at (0,0)
-            "...".to_string(), // Row 1: all blocked, no across clues
-            "--.".to_string(), // Row 2: across clue at (2,0), not at (2,2)
-        ];
-
-        // Test start of across word - needs two consecutive free squares
-        assert!(cell_needs_across_clue(&grid, 0, 0)); // --, starts word
-        assert!(!cell_needs_across_clue(&grid, 0, 1)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 0, 2)); // continues word
-
-        // Test blocked squares
-        assert!(!cell_needs_across_clue(&grid, 1, 0)); // blocked square
-        assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked square
-        assert!(!cell_needs_across_clue(&grid, 1, 2)); // blocked square
-
-        // Test second row
-        assert!(cell_needs_across_clue(&grid, 2, 0)); // --, starts word
-        assert!(!cell_needs_across_clue(&grid, 2, 1)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 2, 2)); // blocked (isolated)
-    }
-
-    /// Test cell_needs_down_clue function
-    /// This determines which cells start down words
-    #[test]
-    fn test_cell_needs_down_clue() {
-        let grid = vec![
-            "-.-".to_string(), // Row 0
-            "-.-".to_string(), // Row 1
-            "...".to_string(), // Row 2: all blocked
-        ];
-
-        // Test start of down word - needs two consecutive free squares vertically
-        assert!(cell_needs_down_clue(&grid, 0, 0)); // -/-, starts down word
-        assert!(!cell_needs_down_clue(&grid, 1, 0)); // continues down word
-        assert!(!cell_needs_down_clue(&grid, 2, 0)); // blocked square
-
-        // Test blocked column
-        assert!(!cell_needs_down_clue(&grid, 0, 1)); // blocked square
-        assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked square
-        assert!(!cell_needs_down_clue(&grid, 2, 1)); // blocked square
-
-        // Test column with down word
-        assert!(cell_needs_down_clue(&grid, 0, 2)); // -/-, starts down word
-        assert!(!cell_needs_down_clue(&grid, 1, 2)); // continues down word
-        assert!(!cell_needs_down_clue(&grid, 2, 2)); // blocked square
-    }
-
-    /// Test across clue detection with edge cases
-    /// Boundary conditions and single-letter words
-    #[test]
-    fn test_across_clue_edge_cases() {
-        // Single column grid
-        let grid = vec!["-".to_string(), "-".to_string(), ".".to_string()];
-        assert!(!cell_needs_across_clue(&grid, 0, 0)); // Can't have across word with width 1
-        assert!(!cell_needs_across_clue(&grid, 1, 0)); // Can't have across word with width 1
-        assert!(!cell_needs_across_clue(&grid, 2, 0)); // Blocked square
-
-        // Grid with gaps
-        let grid = vec!["-.--.".to_string()];
-        assert!(!cell_needs_across_clue(&grid, 0, 0)); // - (isolated, no next free square)
-        assert!(!cell_needs_across_clue(&grid, 0, 1)); // blocked
-        assert!(cell_needs_across_clue(&grid, 0, 2)); // -- (two free squares, starts word)
-        assert!(!cell_needs_across_clue(&grid, 0, 3)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 0, 4)); // blocked
-
-        // Grid with gaps partially filled
-        let grid = vec!["-.-A.".to_string()];
-        assert!(!cell_needs_across_clue(&grid, 0, 0)); // - (isolated, no next free square)
-        assert!(!cell_needs_across_clue(&grid, 0, 1)); // blocked
-        assert!(cell_needs_across_clue(&grid, 0, 2)); // -- (two non-blocked squares, starts word)
-        assert!(!cell_needs_across_clue(&grid, 0, 3)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 0, 4)); // blocked
-    }
-
-    /// Test down clue detection with edge cases
-    /// Boundary conditions and single-letter words
-    #[test]
-    fn test_down_clue_edge_cases() {
-        // Single row grid
-        let grid = vec!["---".to_string()];
-        assert!(!cell_needs_down_clue(&grid, 0, 0)); // Can't have down word with height 1
-        assert!(!cell_needs_down_clue(&grid, 0, 1)); // Can't have down word with height 1
-        assert!(!cell_needs_down_clue(&grid, 0, 2)); // Can't have down word with height 1
-
-        // Grid with gaps
-        let grid = vec![
-            "-".to_string(),
-            ".".to_string(),
-            "-".to_string(),
-            "-".to_string(),
-            "-".to_string(),
-        ];
-        assert!(!cell_needs_down_clue(&grid, 0, 0)); // - (isolated, no next free square)
-        assert!(!cell_needs_down_clue(&grid, 1, 0)); // blocked
-        assert!(cell_needs_down_clue(&grid, 2, 0)); // -- (two free squares, starts down word)
-        assert!(!cell_needs_down_clue(&grid, 3, 0)); // continues down word
-        assert!(!cell_needs_down_clue(&grid, 4, 0)); // continues down word
-
-        // Grid with gaps partially filled
-        let grid = vec![
-            "-".to_string(),
-            ".".to_string(),
-            "A".to_string(),
-            "B".to_string(),
-            "-".to_string(),
-        ];
-        assert!(!cell_needs_down_clue(&grid, 0, 0)); // - (isolated, no next free square)
-        assert!(!cell_needs_down_clue(&grid, 1, 0)); // blocked
-        assert!(cell_needs_down_clue(&grid, 2, 0)); // -- (blocked cell before, non-blocked square
-                                                    // after)
-        assert!(!cell_needs_down_clue(&grid, 3, 0)); // continues down word
-        assert!(!cell_needs_down_clue(&grid, 4, 0)); // continues down word
-    }
-
     /// Test grid validation with mismatched dimensions
     /// Ensures proper error handling for corrupted data
     #[test]
@@ -501,44 +322,5 @@ mod tests {
         }
     }
 
-    /// Test clue detection with real crossword patterns
-    /// Simulates actual crossword grid layouts
-    #[test]
-    fn test_clue_detection_realistic_grid() {
-        let grid = vec![
-            "---".to_string(), // Row 0: all free squares
-            "-.-".to_string(), // Row 1: free, blocked, free
-            "---".to_string(), // Row 2: all free squares
-        ];
 
-        // Across clues: should be at start of each word
-        assert!(cell_needs_across_clue(&grid, 0, 0)); // 3-letter word at row 0
-        assert!(!cell_needs_across_clue(&grid, 0, 1)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 0, 2)); // continues word
-
-        assert!(!cell_needs_across_clue(&grid, 1, 0)); // only 1 free square before block
-        assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked square
-        assert!(!cell_needs_across_clue(&grid, 1, 2)); // only 1 free square (isolated)
-
-        assert!(cell_needs_across_clue(&grid, 2, 0)); // 3-letter word at row 2
-        assert!(!cell_needs_across_clue(&grid, 2, 1)); // continues word
-        assert!(!cell_needs_across_clue(&grid, 2, 2)); // continues word
-
-        // Down clues: should be at start of each word
-        assert!(cell_needs_down_clue(&grid, 0, 0)); // 3-letter word at col 0
-        assert!(!cell_needs_down_clue(&grid, 1, 0)); // continues word
-        assert!(!cell_needs_down_clue(&grid, 2, 0)); // continues word
-
-        assert!(!cell_needs_down_clue(&grid, 0, 1)); // only free at top, blocked below
-        assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked square
-        assert!(!cell_needs_down_clue(&grid, 2, 1)); // isolated - no cell below
-
-        assert!(cell_needs_down_clue(&grid, 0, 2)); // 3-letter word at col 2
-        assert!(!cell_needs_down_clue(&grid, 1, 2)); // continues word
-        assert!(!cell_needs_down_clue(&grid, 2, 2)); // continues word
-
-        // Middle of row 1 is blocked
-        assert!(!cell_needs_across_clue(&grid, 1, 1)); // blocked
-        assert!(!cell_needs_down_clue(&grid, 1, 1)); // blocked
-    }
 }

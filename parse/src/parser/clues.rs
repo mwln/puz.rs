@@ -1,5 +1,8 @@
-use super::grids::{cell_needs_across_clue, cell_needs_down_clue};
-use crate::{error::PuzError, types::Clues};
+use crate::{
+    error::PuzError,
+    grid::{cell_needs_across_clue, cell_needs_down_clue},
+    types::Clues,
+};
 use std::collections::HashMap;
 
 pub(crate) fn process_clues(
