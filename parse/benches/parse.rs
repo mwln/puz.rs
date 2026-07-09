@@ -18,10 +18,12 @@ const CIRCLED: &[u8] = include_bytes!("../examples/data/circled.puz");
 
 fn bench_parse(c: &mut Criterion) {
     let mut group = c.benchmark_group("parse");
-    for (name, data) in [("standard", STANDARD), ("rebus", REBUS), ("circled", CIRCLED)] {
-        group.bench_function(name, |b| {
-            b.iter(|| parse_bytes(black_box(data)).unwrap())
-        });
+    for (name, data) in [
+        ("standard", STANDARD),
+        ("rebus", REBUS),
+        ("circled", CIRCLED),
+    ] {
+        group.bench_function(name, |b| b.iter(|| parse_bytes(black_box(data)).unwrap()));
     }
     group.finish();
 }

@@ -29,10 +29,7 @@ pub(crate) fn parse_puzzle_strict<R: Read>(reader: R) -> Result<ParseResult<Puzz
     parse_puzzle_inner(reader, true)
 }
 
-fn parse_puzzle_inner<R: Read>(
-    reader: R,
-    strict: bool,
-) -> Result<ParseResult<Puzzle>, PuzError> {
+fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Puzzle>, PuzError> {
     let mut buf_reader = BufReader::new(reader);
     let mut warnings = Vec::new();
 

@@ -6,6 +6,7 @@ use std::{error::Error as StdError, fmt, io};
 /// but were handled gracefully. The parsing can continue and produce a valid
 /// puzzle, but some information might be missing or using fallback values.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PuzWarning {
     /// An optional extension section was skipped due to parsing issues
     SkippedExtension { section: String, reason: String },
@@ -58,6 +59,7 @@ impl<T> ParseResult<T> {
 /// These represent critical issues that prevent successful parsing of the puzzle.
 /// Unlike [`PuzWarning`], these errors cause parsing to fail completely.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PuzError {
     /// The file magic header is invalid
     InvalidMagic { found: Vec<u8> },

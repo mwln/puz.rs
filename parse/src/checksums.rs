@@ -81,7 +81,13 @@ impl Components {
 
 /// The 8 CIB header bytes at 0x2C..0x34: width, height, num_clues (LE),
 /// bitmask (LE), scrambled tag (LE). This is what the CIB checksum covers.
-pub(crate) fn cib_bytes(width: u8, height: u8, num_clues: u16, bitmask: u16, scrambled: u16) -> [u8; 8] {
+pub(crate) fn cib_bytes(
+    width: u8,
+    height: u8,
+    num_clues: u16,
+    bitmask: u16,
+    scrambled: u16,
+) -> [u8; 8] {
     let mut b = [0u8; 8];
     b[0] = width;
     b[1] = height;

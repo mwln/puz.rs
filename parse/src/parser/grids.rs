@@ -321,6 +321,4 @@ mod tests {
             panic!("Expected InvalidGrid error with width mismatch");
         }
     }
-
-
 }

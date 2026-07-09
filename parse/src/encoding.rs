@@ -211,7 +211,10 @@ mod tests {
     #[test]
     fn test_encode_high_1252_char() {
         // U+2019 RIGHT SINGLE QUOTATION MARK -> 0x92 in Windows-1252
-        assert_eq!(encode_windows_1252("\u{2019}", "title").unwrap(), vec![0x92]);
+        assert_eq!(
+            encode_windows_1252("\u{2019}", "title").unwrap(),
+            vec![0x92]
+        );
     }
 
     #[test]

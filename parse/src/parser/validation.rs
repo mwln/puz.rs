@@ -269,7 +269,6 @@ mod tests {
         }
     }
 
-    /// Test counting expected clues for simple grid
     /// Test complete puzzle validation with valid puzzle
     /// Integration test for all validation components
     #[test]
@@ -301,5 +300,4 @@ mod tests {
             panic!("Expected InvalidDimensions error");
         }
     }
-
 }

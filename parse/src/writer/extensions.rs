@@ -1,8 +1,4 @@
-use crate::{
-    checksums::cksum_region,
-    error::PuzError,
-    types::Extensions,
-};
+use crate::{checksums::cksum_region, error::PuzError, types::Extensions};
 
 /// GEXT bit flags (mirrors `parser::extensions::parse_gext`).
 const GEXT_CIRCLED: u8 = 0x80;

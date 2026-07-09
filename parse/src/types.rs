@@ -111,4 +111,3 @@ pub struct Rebus {
     /// Mapping of rebus keys to their string values
     pub table: HashMap<u8, String>,
 }
-
