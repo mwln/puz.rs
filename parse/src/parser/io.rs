@@ -67,59 +67,7 @@ pub(crate) fn read_string_until_nul<R: Read>(
         }
         bytes.push(byte[0]);
     }
-    decode_puz_string(&bytes)
-}
-
-pub(crate) fn decode_puz_string(bytes: &[u8]) -> Result<String, PuzError> {
-    if let Ok(s) = std::str::from_utf8(bytes) {
-        return Ok(s.to_string());
-    }
-
-    Ok(bytes.iter().map(|&b| windows_1252_to_char(b)).collect())
-}
-
-fn windows_1252_to_char(byte: u8) -> char {
-    // Windows-1252 character mapping for bytes 128-159 that differ from ISO-8859-1
-    // Legacy .puz files often use Windows-1252 encoding for special characters
-    match byte {
-        // Standard ASCII range (0-127) maps directly
-        0..=127 => byte as char,
-        // Windows-1252 specific mappings for 128-159 range
-        128 => '€',        // Euro sign
-        129 => '\u{0081}', // Unused
-        130 => '‚',        // Single low-9 quotation mark
-        131 => 'ƒ',        // Latin small letter f with hook
-        132 => '„',        // Double low-9 quotation mark
-        133 => '…',        // Horizontal ellipsis
-        134 => '†',        // Dagger
-        135 => '‡',        // Double dagger
-        136 => 'ˆ',        // Modifier letter circumflex accent
-        137 => '‰',        // Per mille sign
-        138 => 'Š',        // Latin capital letter S with caron
-        139 => '‹',        // Single left-pointing angle quotation mark
-        140 => 'Œ',        // Latin capital ligature OE
-        141 => '\u{008D}', // Unused
-        142 => 'Ž',        // Latin capital letter Z with caron
-        143 => '\u{008F}', // Unused
-        144 => '\u{0090}', // Unused
-        145 => '\u{2018}', // Left single quotation mark
-        146 => '\u{2019}', // Right single quotation mark
-        147 => '\u{201C}', // Left double quotation mark
-        148 => '\u{201D}', // Right double quotation mark
-        149 => '•',        // Bullet
-        150 => '–',        // En dash
-        151 => '—',        // Em dash
-        152 => '˜',        // Small tilde
-        153 => '™',        // Trade mark sign
-        154 => 'š',        // Latin small letter s with caron
-        155 => '›',        // Single right-pointing angle quotation mark
-        156 => 'œ',        // Latin small ligature oe
-        157 => '\u{009D}', // Unused
-        158 => 'ž',        // Latin small letter z with caron
-        159 => 'Ÿ',        // Latin capital letter Y with diaeresis
-        // ISO-8859-1 range (160-255) is identical to Windows-1252
-        160..=255 => byte as char,
-    }
+    crate::encoding::decode_puz_string(&bytes)
 }
 
 pub(crate) fn read_remaining_data<R: Read>(reader: &mut BufReader<R>) -> Result<Vec<u8>, PuzError> {
@@ -308,78 +256,6 @@ mod tests {
         let result = read_string_until_nul(&mut reader);
         assert!(result.is_err());
         matches!(result.unwrap_err(), PuzError::IoError { .. });
-    }
-
-    /// Test UTF-8 string decoding
-    /// Modern .puz files should use UTF-8 encoding
-    #[test]
-    fn test_decode_puz_string_utf8() {
-        let utf8_bytes = "Hello, 世界!".as_bytes();
-        let result = decode_puz_string(utf8_bytes).unwrap();
-        assert_eq!(result, "Hello, 世界!");
-    }
-
-    /// Test Windows-1252 fallback decoding
-    /// Legacy .puz files often use Windows-1252 for special characters
-    #[test]
-    fn test_decode_puz_string_windows_1252() {
-        // Bytes that are invalid UTF-8 but valid Windows-1252
-        let win1252_bytes = vec![
-            0x93, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x94, // "Hello" with smart quotes
-            0x97, // em dash
-            0x85, // ellipsis
-        ];
-
-        let result = decode_puz_string(&win1252_bytes).unwrap();
-        // Should contain Unicode equivalents of Windows-1252 characters
-        assert!(result.contains('\u{201C}')); // left double quote
-        assert!(result.contains('\u{201D}')); // right double quote
-        assert!(result.contains('—')); // em dash
-        assert!(result.contains('…')); // ellipsis
-    }
-
-    /// Test Windows-1252 character mapping edge cases
-    /// Ensures all special characters in 128-159 range are handled correctly
-    #[test]
-    fn test_windows_1252_special_chars() {
-        // Test key Windows-1252 characters that differ from ISO-8859-1
-        let test_cases = vec![
-            (128, '€'),        // Euro sign
-            (130, '‚'),        // Single low-9 quotation mark
-            (133, '…'),        // Horizontal ellipsis
-            (145, '\u{2018}'), // Left single quotation mark
-            (146, '\u{2019}'), // Right single quotation mark
-            (147, '\u{201C}'), // Left double quotation mark
-            (148, '\u{201D}'), // Right double quotation mark
-            (150, '–'),        // En dash
-            (151, '—'),        // Em dash
-            (153, '™'),        // Trade mark sign
-        ];
-
-        for (byte_val, expected_char) in test_cases {
-            let result = windows_1252_to_char(byte_val);
-            assert_eq!(result, expected_char, "Failed for byte {byte_val}");
-        }
-    }
-
-    /// Test ASCII character pass-through
-    /// Standard ASCII characters should map directly
-    #[test]
-    fn test_windows_1252_ascii_passthrough() {
-        for byte_val in 0..=127 {
-            let result = windows_1252_to_char(byte_val);
-            assert_eq!(result, byte_val as char);
-        }
-    }
-
-    /// Test ISO-8859-1 range pass-through
-    /// Characters 160-255 should map directly to Unicode
-    #[test]
-    fn test_windows_1252_iso_8859_1_passthrough() {
-        for byte_val in 160..=255 {
-            let result = windows_1252_to_char(byte_val);
-            assert_eq!(result, byte_val as char);
-        }
     }
 
     /// Test finding sections in extension data
