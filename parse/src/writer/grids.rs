@@ -49,4 +49,25 @@ mod tests {
         };
         assert_eq!(serialize_grids(&grid), b"XY--");
     }
+
+    #[test]
+    fn test_serialize_grids_non_square() {
+        // width (3) != height (2): guards against row/col transposition bugs.
+        let grid = Grid {
+            solution: vec!["ABC".to_string(), "DEF".to_string()],
+            blank: vec!["---".to_string(), "---".to_string()],
+        };
+        let bytes = serialize_grids(&grid);
+        assert_eq!(bytes, b"ABCDEF------");
+        assert_eq!(bytes.len(), 3 * 2 * 2); // width*height, two grids
+    }
+
+    #[test]
+    fn test_serialize_grids_single_cell() {
+        let grid = Grid {
+            solution: vec!["A".to_string()],
+            blank: vec!["-".to_string()],
+        };
+        assert_eq!(serialize_grids(&grid), b"A-");
+    }
 }

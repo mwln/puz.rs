@@ -96,4 +96,22 @@ mod tests {
         // "1.3" + NUL pad
         assert_eq!(&h[0x18..0x1C], b"1.3\0");
     }
+
+    #[test]
+    fn test_header_version_longer_than_4_truncates() {
+        // The version slot is exactly 4 bytes; a longer string is truncated so
+        // it can never overrun into the reserved/width bytes.
+        let h = serialize_header(3, 3, 4, "1.2.3", 0x0001);
+        assert_eq!(&h[0x18..0x1C], b"1.2.");
+        // Reserved byte at 0x1C must remain zero (no overrun).
+        assert_eq!(h[0x1C], 0);
+    }
+
+    #[test]
+    fn test_header_num_clues_and_bitmask_little_endian() {
+        // 0x0102 must serialize LE as [0x02, 0x01].
+        let h = serialize_header(3, 3, 0x0102, "1.3", 0x0304);
+        assert_eq!(&h[0x2E..0x30], &[0x02, 0x01]);
+        assert_eq!(&h[0x30..0x32], &[0x04, 0x03]);
+    }
 }

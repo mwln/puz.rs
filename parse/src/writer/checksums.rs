@@ -32,4 +32,25 @@ mod tests {
         //   0x03: rot(0x8002)=0x4001, +3 => 0x4004
         assert_eq!(cksum_region(&[0x01, 0x02, 0x03], 0), 0x4004);
     }
+
+    #[test]
+    fn test_cksum_region_seed_chaining() {
+        // Feeding the checksum of region A as the seed for region B must equal
+        // checksumming the concatenation in one pass. The composite checksums
+        // in Task 7 chain regions with a running seed, so this property must
+        // hold.
+        let a = [0x10u8, 0x20, 0x30];
+        let b = [0x40u8, 0x50];
+        let chained = cksum_region(&b, cksum_region(&a, 0));
+        let concat: Vec<u8> = a.iter().chain(b.iter()).copied().collect();
+        assert_eq!(chained, cksum_region(&concat, 0));
+    }
+
+    #[test]
+    fn test_cksum_region_wraps_at_u16() {
+        // High bytes accumulate and wrap without panicking (wrapping_add).
+        let data = [0xFFu8; 8];
+        // Just assert it computes a value (no overflow panic) and is stable.
+        assert_eq!(cksum_region(&data, 0), cksum_region(&data, 0));
+    }
 }
