@@ -97,9 +97,9 @@ fn validate_grid_consistency(
 pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
         if let Some(this_char) = row_str.chars().nth(col) {
-            if this_char == FREE_SQUARE {
+            if this_char == FREE_SQUARE || this_char.is_ascii_alphanumeric() {
                 if let Some(next_char) = row_str.chars().nth(col + 1) {
-                    if next_char == FREE_SQUARE {
+                    if next_char != TAKEN_SQUARE || next_char.is_ascii_alphanumeric() {
                         return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
                     }
                 }
@@ -112,10 +112,10 @@ pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) ->
 pub(crate) fn cell_needs_down_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
         if let Some(this_char) = row_str.chars().nth(col) {
-            if this_char == FREE_SQUARE {
+            if this_char == FREE_SQUARE || this_char.is_ascii_alphanumeric() {
                 if let Some(next_row) = grid.get(row + 1) {
                     if let Some(next_char) = next_row.chars().nth(col) {
-                        if next_char == FREE_SQUARE {
+                        if next_char != TAKEN_SQUARE || next_char.is_ascii_alphanumeric() {
                             return row == 0
                                 || grid.get(row - 1).and_then(|r| r.chars().nth(col))
                                     == Some(TAKEN_SQUARE);
@@ -396,6 +396,14 @@ mod tests {
         assert!(cell_needs_across_clue(&grid, 0, 2)); // -- (two free squares, starts word)
         assert!(!cell_needs_across_clue(&grid, 0, 3)); // continues word
         assert!(!cell_needs_across_clue(&grid, 0, 4)); // blocked
+
+        // Grid with gaps partially filled
+        let grid = vec!["-.-A.".to_string()];
+        assert!(!cell_needs_across_clue(&grid, 0, 0)); // - (isolated, no next free square)
+        assert!(!cell_needs_across_clue(&grid, 0, 1)); // blocked
+        assert!(cell_needs_across_clue(&grid, 0, 2)); // -- (two non-blocked squares, starts word)
+        assert!(!cell_needs_across_clue(&grid, 0, 3)); // continues word
+        assert!(!cell_needs_across_clue(&grid, 0, 4)); // blocked
     }
 
     /// Test down clue detection with edge cases
@@ -419,6 +427,21 @@ mod tests {
         assert!(!cell_needs_down_clue(&grid, 0, 0)); // - (isolated, no next free square)
         assert!(!cell_needs_down_clue(&grid, 1, 0)); // blocked
         assert!(cell_needs_down_clue(&grid, 2, 0)); // -- (two free squares, starts down word)
+        assert!(!cell_needs_down_clue(&grid, 3, 0)); // continues down word
+        assert!(!cell_needs_down_clue(&grid, 4, 0)); // continues down word
+
+        // Grid with gaps partially filled
+        let grid = vec![
+            "-".to_string(),
+            ".".to_string(),
+            "A".to_string(),
+            "B".to_string(),
+            "-".to_string(),
+        ];
+        assert!(!cell_needs_down_clue(&grid, 0, 0)); // - (isolated, no next free square)
+        assert!(!cell_needs_down_clue(&grid, 1, 0)); // blocked
+        assert!(cell_needs_down_clue(&grid, 2, 0)); // -- (blocked cell before, non-blocked square
+                                                    // after)
         assert!(!cell_needs_down_clue(&grid, 3, 0)); // continues down word
         assert!(!cell_needs_down_clue(&grid, 4, 0)); // continues down word
     }
