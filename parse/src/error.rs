@@ -109,6 +109,12 @@ pub enum PuzError {
 
     /// Clue processing failed
     InvalidClues { reason: String },
+
+    /// A string contains a character that cannot be encoded in Windows-1252
+    EncodingError { character: char, context: String },
+
+    /// A requested puzzle feature is not supported by the writer
+    UnsupportedFeature { feature: String },
 }
 
 impl fmt::Display for PuzError {
@@ -178,6 +184,15 @@ impl fmt::Display for PuzError {
             }
             PuzError::InvalidClues { reason } => {
                 write!(f, "Invalid clues: {reason}")
+            }
+            PuzError::EncodingError { character, context } => {
+                write!(
+                    f,
+                    "Cannot encode character {character:?} in {context}: not representable in Windows-1252."
+                )
+            }
+            PuzError::UnsupportedFeature { feature } => {
+                write!(f, "Writing is not supported for: {feature}.")
             }
         }
     }
