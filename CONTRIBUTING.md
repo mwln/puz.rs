@@ -55,9 +55,6 @@ This is a Cargo workspace with two crates:
   parsing.
 - [`cli/`](cli/) is the `puz` command-line tool, which depends on `puz-parse`.
 
-Sample `.puz` files used by tests and examples live in
-[`parse/examples/data/`](parse/examples/data/).
-
 ## Running the checks
 
 Before pushing, run the same checks CI runs:
@@ -91,10 +88,6 @@ Run the full suite with `just test`, or target a single test the usual way:
 ```sh
 cargo test test_name
 ```
-
-If you're changing the parser, the fixtures in `parse/examples/data/` are the
-easiest way to exercise real puzzles, including rebus, circled, and other
-variants.
 
 ## Opening a pull request
 

@@ -15,7 +15,6 @@ serializes them back to a spec-correct `.puz` file.
 - [Data model](#data-model)
 - [Warnings and errors](#warnings-and-errors)
 - [Feature flags](#feature-flags)
-- [Examples](#examples)
 - [License](#license)
 
 ## Installation
@@ -197,14 +196,6 @@ fn main() {
 
 - `json` (off by default) derives serde `Serialize`/`Deserialize` on `Puzzle`
   and its component types, so a parsed puzzle can be serialized directly.
-
-## Examples
-
-The [`examples/`](examples/) directory has runnable programs. Run one with:
-
-```sh
-cargo run --example read-with-file
-```
 
 ## License
 
