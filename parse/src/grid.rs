@@ -21,15 +21,29 @@ pub(crate) fn is_playable_square(cell: Option<char>) -> bool {
     matches!(cell, Some(c) if c == FREE_SQUARE || c.is_ascii_alphanumeric())
 }
 
+/// The character at column `col` of a grid row.
+///
+/// Uses O(1) byte indexing for the common all-ASCII case (`.puz` grids contain
+/// only `.`, `-`, and alphanumerics) and falls back to a `chars()` scan for the
+/// rare non-ASCII row, so it is behavior-identical to `row.chars().nth(col)`
+/// while avoiding that method's O(col) walk on every lookup.
+fn cell_char(row: &str, col: usize) -> Option<char> {
+    if row.is_ascii() {
+        row.as_bytes().get(col).map(|&b| b as char)
+    } else {
+        row.chars().nth(col)
+    }
+}
+
 /// Returns `true` when the cell at `(row, col)` starts an across word: it is
 /// playable, the cell to its right is playable, and it is either at the left
 /// edge or preceded by a blocked square.
 pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
-        if is_playable_square(row_str.chars().nth(col))
-            && is_playable_square(row_str.chars().nth(col + 1))
+        if is_playable_square(cell_char(row_str, col))
+            && is_playable_square(cell_char(row_str, col + 1))
         {
-            return col == 0 || row_str.chars().nth(col - 1) == Some(TAKEN_SQUARE);
+            return col == 0 || cell_char(row_str, col - 1) == Some(TAKEN_SQUARE);
         }
     }
     false
@@ -40,11 +54,11 @@ pub(crate) fn cell_needs_across_clue(grid: &[String], row: usize, col: usize) ->
 /// preceded above by a blocked square.
 pub(crate) fn cell_needs_down_clue(grid: &[String], row: usize, col: usize) -> bool {
     if let Some(row_str) = grid.get(row) {
-        if is_playable_square(row_str.chars().nth(col))
-            && is_playable_square(grid.get(row + 1).and_then(|r| r.chars().nth(col)))
+        if is_playable_square(cell_char(row_str, col))
+            && is_playable_square(grid.get(row + 1).and_then(|r| cell_char(r, col)))
         {
             return row == 0
-                || grid.get(row - 1).and_then(|r| r.chars().nth(col)) == Some(TAKEN_SQUARE);
+                || grid.get(row - 1).and_then(|r| cell_char(r, col)) == Some(TAKEN_SQUARE);
         }
     }
     false
