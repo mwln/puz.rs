@@ -130,13 +130,9 @@ jobs:
           - aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
-      # Install the target on the same toolchain that rust-toolchain.toml
-      # pins, otherwise the bare `cargo check` below resolves to the pinned
-      # toolchain which has no cross target installed.
       - name: install rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.97.0"
           targets: ${{ matrix.target }}
       - name: cache dependencies
         uses: Swatinem/rust-cache@v2
