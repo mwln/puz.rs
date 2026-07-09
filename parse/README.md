@@ -1,14 +1,17 @@
 # puz-parse
 
-A Rust library for parsing the binary `.puz` crossword format used by
-AcrossLite and most crossword apps. It reads metadata, the solution and blank
-grids, clues, and extensions like rebus and circled squares.
+A Rust library for reading and writing the binary `.puz` crossword format used
+by AcrossLite and most crossword apps. It parses metadata, the solution and
+blank grids, clues, and extensions like rebus and circled squares — and
+serializes them back to a spec-correct `.puz` file.
 
 ## Contents
 
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Parsing API](#parsing-api)
+- [Writing API](#writing-api)
+- [Validation](#validation)
 - [Data model](#data-model)
 - [Warnings and errors](#warnings-and-errors)
 - [Feature flags](#feature-flags)
@@ -82,6 +85,56 @@ fn main() -> Result<(), puz_parse::PuzError> {
     println!("parsed {}", puzzle.info.title);
 
     Ok(())
+}
+```
+
+## Writing API
+
+The library can serialize a `Puzzle` back into the binary `.puz` format,
+computing all checksums (overall, CIB, and the masked "ICHEATED" checksums) plus
+per-extension-section checksums, so the output is accepted by other crossword
+software:
+
+- `to_bytes(&puzzle)` returns the `.puz` file as a `Vec<u8>`.
+- `write(&puzzle, writer)` writes to anything implementing `Write`.
+- `write_file(&puzzle, path)` writes straight to a file.
+
+```rust
+use puz_parse::{parse_file, write_file};
+
+fn main() -> Result<(), puz_parse::PuzError> {
+    let puzzle = parse_file("puzzle.puz")?;
+    write_file(&puzzle, "copy.puz")?;
+    Ok(())
+}
+```
+
+Writing validates the puzzle first and returns an error rather than producing a
+corrupt file: grids must match the declared dimensions, clue counts must match
+the grid, and every string must be encodable in Windows-1252. Scrambled puzzles
+are rejected with `PuzError::UnsupportedFeature` (writing the scramble algorithm
+is not currently supported).
+
+## Validation
+
+`parse` is lenient about checksums — many real-world `.puz` files have incorrect
+ones — so a mismatch is reported as a `PuzWarning::ChecksumMismatch` rather than
+an error. When you need to enforce integrity, use the strict entry points, which
+recompute all checksums and return `PuzError::InvalidChecksum` on the first
+mismatch:
+
+- `parse_strict(reader)` parses but fails on a checksum mismatch.
+- `validate_bytes(&[u8])` checks a file's checksums without returning the puzzle.
+
+```rust
+use puz_parse::validate_bytes;
+
+fn main() {
+    let data = std::fs::read("puzzle.puz").expect("read file");
+    match validate_bytes(&data) {
+        Ok(()) => println!("checksums valid"),
+        Err(e) => eprintln!("invalid: {e}"),
+    }
 }
 ```
 

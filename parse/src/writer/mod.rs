@@ -101,13 +101,13 @@ fn validate(puzzle: &Puzzle) -> Result<(), PuzError> {
     let (w, h) = (info.width as usize, info.height as usize);
 
     // Both grids must have `height` rows, each `width` wide.
-    for (name, rows) in [("solution", &puzzle.grid.solution), ("blank", &puzzle.grid.blank)] {
+    for (name, rows) in [
+        ("solution", &puzzle.grid.solution),
+        ("blank", &puzzle.grid.blank),
+    ] {
         if rows.len() != h {
             return Err(PuzError::InvalidGrid {
-                reason: format!(
-                    "{name} grid has {} rows, expected {h} (height)",
-                    rows.len()
-                ),
+                reason: format!("{name} grid has {} rows, expected {h} (height)", rows.len()),
             });
         }
         if let Some(bad) = rows.iter().find(|r| r.chars().count() != w) {
@@ -236,6 +236,115 @@ mod tests {
     }
 
     #[test]
+    fn test_round_trip_windows_1252_strings() {
+        let mut p = sample_puzzle();
+        // café (é = 0xE9) and a right single quote (U+2019 = 0x92): both
+        // representable in Windows-1252 but not ASCII.
+        p.info.author = "caf\u{e9}".into();
+        p.info.title = "it\u{2019}s".into();
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    #[test]
+    fn test_round_trip_empty_metadata() {
+        let mut p = sample_puzzle();
+        p.info.title = String::new();
+        p.info.author = String::new();
+        p.info.copyright = String::new();
+        p.info.notes = String::new();
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    #[test]
+    fn test_round_trip_larger_grid_with_blocks() {
+        // 5x5 with a symmetric block pattern.
+        let solution = vec![
+            "ABCDE".to_string(),
+            "F.GH.".to_string(),
+            "IJKLM".to_string(),
+            ".NO.P".to_string(),
+            "QRSTU".to_string(),
+        ];
+        let blank: Vec<String> = solution
+            .iter()
+            .map(|r| {
+                r.chars()
+                    .map(|c| if c == '.' { '.' } else { '-' })
+                    .collect()
+            })
+            .collect();
+
+        let mut across = HashMap::new();
+        let mut down = HashMap::new();
+        let (na, nd) = crate::grid::count_clues(&blank);
+        // Fill exactly the required number of clues, numbered by position.
+        let ordered_numbers = numbered_cells(&blank);
+        assign_clues(&ordered_numbers, &blank, &mut across, &mut down);
+        assert_eq!(across.len(), na);
+        assert_eq!(down.len(), nd);
+
+        let p = Puzzle {
+            info: PuzzleInfo {
+                title: "Blocks".into(),
+                author: "A".into(),
+                copyright: "(c)".into(),
+                notes: String::new(),
+                width: 5,
+                height: 5,
+                version: "1.3".into(),
+                is_scrambled: false,
+            },
+            grid: Grid { solution, blank },
+            clues: Clues { across, down },
+            extensions: Extensions {
+                rebus: None,
+                circles: None,
+                given: None,
+            },
+        };
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    // --- test helpers for building a fully-clued larger grid ---
+
+    fn numbered_cells(blank: &[String]) -> Vec<(usize, usize, u16)> {
+        let mut out = Vec::new();
+        let h = blank.len();
+        let w = if h > 0 { blank[0].len() } else { 0 };
+        let mut n = 1u16;
+        for row in 0..h {
+            for col in 0..w {
+                let a = crate::grid::cell_needs_across_clue(blank, row, col);
+                let d = crate::grid::cell_needs_down_clue(blank, row, col);
+                if a || d {
+                    out.push((row, col, n));
+                    n += 1;
+                }
+            }
+        }
+        out
+    }
+
+    fn assign_clues(
+        cells: &[(usize, usize, u16)],
+        blank: &[String],
+        across: &mut HashMap<u16, String>,
+        down: &mut HashMap<u16, String>,
+    ) {
+        for &(row, col, n) in cells {
+            if crate::grid::cell_needs_across_clue(blank, row, col) {
+                across.insert(n, format!("across {n}"));
+            }
+            if crate::grid::cell_needs_down_clue(blank, row, col) {
+                down.insert(n, format!("down {n}"));
+            }
+        }
+    }
+
+    #[test]
     fn test_written_header_checksums_are_nonzero() {
         // The whole point of the writer: real checksums, not the zeroed
         // placeholders. Confirm the global/CIB slots are populated.
@@ -297,10 +406,10 @@ mod tests {
         // lenient parse should emit no checksum-mismatch warning
         let result = crate::parse(&bytes[..]).unwrap();
         assert!(
-            !result.warnings.iter().any(|w| matches!(
-                w,
-                crate::PuzWarning::ChecksumMismatch { .. }
-            )),
+            !result
+                .warnings
+                .iter()
+                .any(|w| matches!(w, crate::PuzWarning::ChecksumMismatch { .. })),
             "unexpected checksum warning on valid file"
         );
     }

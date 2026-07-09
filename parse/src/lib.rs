@@ -35,11 +35,36 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! # Writing
+//!
+//! The library can also serialize a [`Puzzle`] back into the binary `.puz`
+//! format, computing all checksums so the output is accepted by other
+//! crossword software:
+//!
+//! ```rust,no_run
+//! use puz_parse::{parse_file, to_bytes, write_file};
+//!
+//! let puzzle = parse_file("puzzle.puz")?;
+//! // in-memory bytes:
+//! let bytes = to_bytes(&puzzle)?;
+//! // or straight to a file:
+//! write_file(&puzzle, "copy.puz")?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # Validation
+//!
+//! [`parse`] records checksum mismatches as [`PuzWarning::ChecksumMismatch`]
+//! and continues (many real-world files have incorrect checksums). Use
+//! [`parse_strict`] or [`validate_bytes`] to treat a checksum mismatch as an
+//! error instead.
+//!
 //! # Features
 //!
 //! - **Complete .puz parsing**: Supports all standard puzzle features
-//! - **Error recovery**: Continues parsing with warnings for non-critical issues  
-//! - **Memory efficient**: Zero-copy parsing where possible
+//! - **Writing**: Serialize a `Puzzle` back to `.puz` with correct checksums
+//! - **Validation**: Optional strict checksum verification
+//! - **Error recovery**: Continues parsing with warnings for non-critical issues
 //! - **Extensible**: Handles rebus squares, circles, and other puzzle extensions
 //! - **JSON support**: Optional serde support via the `json` feature
 //!

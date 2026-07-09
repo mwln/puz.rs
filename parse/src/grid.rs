@@ -163,11 +163,7 @@ mod tests {
 
     #[test]
     fn test_cell_needs_across_clue() {
-        let grid = vec![
-            "---".to_string(),
-            "...".to_string(),
-            "--.".to_string(),
-        ];
+        let grid = vec!["---".to_string(), "...".to_string(), "--.".to_string()];
 
         assert!(cell_needs_across_clue(&grid, 0, 0));
         assert!(!cell_needs_across_clue(&grid, 0, 1));
@@ -184,11 +180,7 @@ mod tests {
 
     #[test]
     fn test_cell_needs_down_clue() {
-        let grid = vec![
-            "-.-".to_string(),
-            "-.-".to_string(),
-            "...".to_string(),
-        ];
+        let grid = vec!["-.-".to_string(), "-.-".to_string(), "...".to_string()];
 
         assert!(cell_needs_down_clue(&grid, 0, 0));
         assert!(!cell_needs_down_clue(&grid, 1, 0));
@@ -261,11 +253,7 @@ mod tests {
 
     #[test]
     fn test_clue_detection_realistic_grid() {
-        let grid = vec![
-            "---".to_string(),
-            "-.-".to_string(),
-            "---".to_string(),
-        ];
+        let grid = vec!["---".to_string(), "-.-".to_string(), "---".to_string()];
 
         assert!(cell_needs_across_clue(&grid, 0, 0));
         assert!(!cell_needs_across_clue(&grid, 0, 1));
@@ -291,22 +279,14 @@ mod tests {
     #[test]
     fn test_count_clues() {
         // 3x3 open grid with a single center block.
-        let grid = vec![
-            "---".to_string(),
-            "-.-".to_string(),
-            "---".to_string(),
-        ];
+        let grid = vec!["---".to_string(), "-.-".to_string(), "---".to_string()];
         // Across starts: (0,0), (2,0). Down starts: (0,0), (0,2).
         assert_eq!(count_clues(&grid), (2, 2));
     }
 
     #[test]
     fn test_count_clues_complex() {
-        let grid = vec![
-            "--.".to_string(),
-            "...".to_string(),
-            ".--".to_string(),
-        ];
+        let grid = vec!["--.".to_string(), "...".to_string(), ".--".to_string()];
         let (across_count, down_count) = count_clues(&grid);
         assert_eq!(across_count, 2);
         assert!(down_count <= 3);
@@ -326,12 +306,12 @@ mod tests {
 
     #[test]
     fn test_is_valid_puzzle_char() {
-        for c in ['A', 'Z', 'a', 'z', '0', '9', ' ', '-', '\'', '&', '.', '!', '?'] {
+        for c in [
+            'A', 'Z', 'a', 'z', '0', '9', ' ', '-', '\'', '&', '.', '!', '?',
+        ] {
             assert!(is_valid_puzzle_char(c), "expected {c:?} to be valid");
         }
-        for c in [
-            '\0', '\n', '\t', '@', '#', '$', '%', '^', '*', '(', ')',
-        ] {
+        for c in ['\0', '\n', '\t', '@', '#', '$', '%', '^', '*', '(', ')'] {
             assert!(!is_valid_puzzle_char(c), "expected {c:?} to be invalid");
         }
     }
@@ -346,7 +326,11 @@ mod tests {
         let grids = [
             vec!["---".to_string(), "-.-".to_string(), "---".to_string()],
             vec!["--.".to_string(), "...".to_string(), ".--".to_string()],
-            vec!["-----".to_string(), "-.-.-".to_string(), "-----".to_string()],
+            vec![
+                "-----".to_string(),
+                "-.-.-".to_string(),
+                "-----".to_string(),
+            ],
             vec!["-".to_string()],
             vec![],
         ];
@@ -402,11 +386,7 @@ mod tests {
     #[test]
     fn test_order_3x3_with_center_block() {
         // Verified empirically against parser numbering.
-        let blank = vec![
-            "---".to_string(),
-            "-.-".to_string(),
-            "---".to_string(),
-        ];
+        let blank = vec!["---".to_string(), "-.-".to_string(), "---".to_string()];
         let mut across = HashMap::new();
         across.insert(1, "1a".to_string());
         across.insert(3, "3a".to_string());
