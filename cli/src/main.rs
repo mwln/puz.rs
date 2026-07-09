@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{Arg, Command};
+use clap::{crate_version, Arg, Command};
 use puz_parse::parse;
 use std::fs::File;
 use std::io::{self, Write};
@@ -10,7 +10,7 @@ fn main() -> Result<()> {
         .about("parse .puz crossword puzzle files")
         .long_about("parse .puz crossword puzzle files into structured data\n\nsupports all puzzle features including rebus squares, circled cells,\nand metadata extraction")
         .after_help("examples:\n    puz puzzle.puz                  # parse and output to stdout\n    puz *.puz --pretty              # parse multiple files with formatting\n    puz daily.puz -o output.json    # save output to file\n    puz puzzle.puz --single         # output single object for one file")
-        .version("0.1.0")
+        .version(crate_version!())
         .arg(
             Arg::new("files")
                 .help("puzzle files to process")
