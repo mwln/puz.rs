@@ -11,6 +11,8 @@ mod header;
 
 /// Serialize a puzzle into an in-memory `.puz` byte buffer.
 pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
+    validate(puzzle)?;
+
     let info = &puzzle.info;
 
     // --- Body sections ---
@@ -77,6 +79,67 @@ pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
     out.extend_from_slice(&string_bytes);
     out.extend_from_slice(&extension_bytes);
     Ok(out)
+}
+
+/// Validate a puzzle before serializing, returning a descriptive error rather
+/// than producing a corrupt file.
+///
+/// Checks that the grids match the declared dimensions, that the clue counts
+/// match what the grid implies, and rejects scrambled puzzles (writing the
+/// scramble algorithm is deferred — see the design doc).
+fn validate(puzzle: &Puzzle) -> Result<(), PuzError> {
+    let info = &puzzle.info;
+
+    // Scrambled writing is not supported; reject rather than emit a file that
+    // claims (via a 0x0000 tag) to be unscrambled when it isn't.
+    if info.is_scrambled {
+        return Err(PuzError::UnsupportedFeature {
+            feature: "scrambled puzzles".to_string(),
+        });
+    }
+
+    let (w, h) = (info.width as usize, info.height as usize);
+
+    // Both grids must have `height` rows, each `width` wide.
+    for (name, rows) in [("solution", &puzzle.grid.solution), ("blank", &puzzle.grid.blank)] {
+        if rows.len() != h {
+            return Err(PuzError::InvalidGrid {
+                reason: format!(
+                    "{name} grid has {} rows, expected {h} (height)",
+                    rows.len()
+                ),
+            });
+        }
+        if let Some(bad) = rows.iter().find(|r| r.chars().count() != w) {
+            return Err(PuzError::InvalidGrid {
+                reason: format!(
+                    "{name} grid row width {} does not match declared width {w}",
+                    bad.chars().count()
+                ),
+            });
+        }
+    }
+
+    // The number of clues provided must match what the grid geometry implies.
+    let (exp_across, exp_down) = crate::grid::count_clues(&puzzle.grid.blank);
+    if puzzle.clues.across.len() != exp_across {
+        return Err(PuzError::InvalidClues {
+            reason: format!(
+                "expected {exp_across} across clues, got {}",
+                puzzle.clues.across.len()
+            ),
+        });
+    }
+    if puzzle.clues.down.len() != exp_down {
+        return Err(PuzError::InvalidClues {
+            reason: format!(
+                "expected {exp_down} down clues, got {}",
+                puzzle.clues.down.len()
+            ),
+        });
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -179,6 +242,49 @@ mod tests {
         let bytes = to_bytes(&sample_puzzle()).unwrap();
         assert_ne!(&bytes[0x00..0x02], &[0, 0], "global checksum not written");
         assert_ne!(&bytes[0x0E..0x10], &[0, 0], "CIB checksum not written");
+    }
+
+    #[test]
+    fn test_reject_scrambled_puzzle() {
+        let mut p = sample_puzzle();
+        p.info.is_scrambled = true;
+        assert!(matches!(
+            to_bytes(&p).unwrap_err(),
+            PuzError::UnsupportedFeature { .. }
+        ));
+    }
+
+    #[test]
+    fn test_reject_grid_row_width_mismatch() {
+        let mut p = sample_puzzle();
+        // declared width 2, but a row is width 3
+        p.grid.solution = vec!["ABC".into(), "CD".into()];
+        assert!(matches!(
+            to_bytes(&p).unwrap_err(),
+            PuzError::InvalidGrid { .. }
+        ));
+    }
+
+    #[test]
+    fn test_reject_grid_row_count_mismatch() {
+        let mut p = sample_puzzle();
+        // declared height 2, but only 1 blank row
+        p.grid.blank = vec!["--".into()];
+        assert!(matches!(
+            to_bytes(&p).unwrap_err(),
+            PuzError::InvalidGrid { .. }
+        ));
+    }
+
+    #[test]
+    fn test_reject_clue_count_mismatch() {
+        let mut p = sample_puzzle();
+        // remove a required across clue
+        p.clues.across.remove(&3);
+        assert!(matches!(
+            to_bytes(&p).unwrap_err(),
+            PuzError::InvalidClues { .. }
+        ));
     }
 
     #[test]
