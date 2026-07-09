@@ -4,13 +4,13 @@ use std::io::{BufReader, Read};
 
 #[derive(Debug)]
 pub(crate) struct Header {
-    pub width: u8,
-    pub height: u8,
-    pub num_clues: u16,
-    pub version: String,
+    pub(crate) width: u8,
+    pub(crate) height: u8,
+    pub(crate) num_clues: u16,
+    pub(crate) version: String,
     #[allow(dead_code)]
-    pub bitmask: u16,
-    pub is_scrambled: bool,
+    pub(crate) bitmask: u16,
+    pub(crate) is_scrambled: bool,
 }
 
 pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header, PuzError> {

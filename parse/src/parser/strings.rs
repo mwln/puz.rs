@@ -4,11 +4,11 @@ use std::io::{BufReader, Read};
 
 #[derive(Debug)]
 pub(crate) struct StringData {
-    pub title: String,
-    pub author: String,
-    pub copyright: String,
-    pub notes: String,
-    pub clues: Vec<String>,
+    pub(crate) title: String,
+    pub(crate) author: String,
+    pub(crate) copyright: String,
+    pub(crate) notes: String,
+    pub(crate) clues: Vec<String>,
 }
 
 pub(crate) fn parse_strings<R: Read>(
