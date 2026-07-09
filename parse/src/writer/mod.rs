@@ -1,6 +1,7 @@
 use crate::{error::PuzError, types::Puzzle};
 
 mod checksums;
+mod clues;
 mod grids;
 
 /// Serialize a puzzle into an in-memory `.puz` byte buffer.
