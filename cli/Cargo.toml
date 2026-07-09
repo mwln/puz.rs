@@ -1,6 +1,6 @@
 [package]
 name = "puz"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Command line application for processing and interacting with .puz crossword puzzle files"
 license = "MIT"
@@ -13,7 +13,7 @@ name = "puz"
 path = "src/main.rs"
 
 [dependencies]
-puz-parse = { version = "0.1.2", path = "../parse", features = ["json"] }
+puz-parse = { version = "0.1.3", path = "../parse", features = ["json"] }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
