@@ -112,5 +112,3 @@ pub struct Rebus {
     pub table: HashMap<u8, String>,
 }
 
-pub(crate) const FREE_SQUARE: char = '-';
-pub(crate) const TAKEN_SQUARE: char = '.';

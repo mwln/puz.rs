@@ -49,6 +49,7 @@
 
 mod encoding;
 mod error;
+mod grid;
 mod parser;
 mod types;
 mod writer;

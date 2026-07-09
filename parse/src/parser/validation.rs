@@ -1,6 +1,7 @@
 use crate::{
     error::PuzError,
-    types::{Puzzle, TAKEN_SQUARE},
+    grid::{count_clues, is_valid_puzzle_char, TAKEN_SQUARE},
+    types::Puzzle,
 };
 
 pub(crate) fn validate_puzzle(puzzle: &Puzzle) -> Result<(), PuzError> {
@@ -56,7 +57,7 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
 }
 
 fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
-    let (expected_across, expected_down) = count_expected_clues(&puzzle.grid.blank);
+    let (expected_across, expected_down) = count_clues(&puzzle.grid.blank);
 
     let actual_across = puzzle.clues.across.len();
     let actual_down = puzzle.clues.down.len();
@@ -81,31 +82,6 @@ fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
     }
 
     Ok(())
-}
-
-fn count_expected_clues(grid: &[String]) -> (usize, usize) {
-    let mut across_count = 0;
-    let mut down_count = 0;
-
-    let height = grid.len();
-    let width = if height > 0 { grid[0].len() } else { 0 };
-
-    for row in 0..height {
-        for col in 0..width {
-            if super::grids::cell_needs_across_clue(grid, row, col) {
-                across_count += 1;
-            }
-            if super::grids::cell_needs_down_clue(grid, row, col) {
-                down_count += 1;
-            }
-        }
-    }
-
-    (across_count, down_count)
-}
-
-fn is_valid_puzzle_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || matches!(c, ' ' | '-' | '\'' | '&' | '.' | '!' | '?')
 }
 
 #[cfg(test)]
@@ -294,75 +270,6 @@ mod tests {
     }
 
     /// Test counting expected clues for simple grid
-    /// Verifies clue counting logic matches grid structure
-    #[test]
-    fn test_count_expected_clues() {
-        let grid = vec![
-            "---".to_string(), // 1 across clue
-            "-.-".to_string(), // no across clues (isolated squares)
-            "---".to_string(), // 1 across clue
-        ];
-
-        let (across_count, down_count) = count_expected_clues(&grid);
-
-        // Should have 2 across clues (rows 0 and 2)
-        // Should have 2 down clues (columns 0 and 2)
-        assert_eq!(across_count, 2);
-        assert_eq!(down_count, 2);
-    }
-
-    /// Test counting clues for complex grid with blocks
-    /// Verifies clue counting handles blocked squares correctly
-    #[test]
-    fn test_count_expected_clues_complex() {
-        let grid = vec![
-            "--.".to_string(), // 1 across clue at (0,0)
-            "...".to_string(), // all blocked, no clues
-            ".--".to_string(), // 1 across clue at (2,1)
-        ];
-
-        let (across_count, down_count) = count_expected_clues(&grid);
-
-        // Should have 2 across clues
-        // Down clues depend on vertical word patterns
-        assert_eq!(across_count, 2);
-        // Down count will depend on vertical connectivity
-        assert!(down_count <= 3); // At most one per column
-    }
-
-    /// Test valid puzzle character detection
-    /// Ensures character validation allows appropriate characters
-    #[test]
-    fn test_is_valid_puzzle_char() {
-        // Test valid characters
-        assert!(is_valid_puzzle_char('A'));
-        assert!(is_valid_puzzle_char('Z'));
-        assert!(is_valid_puzzle_char('a'));
-        assert!(is_valid_puzzle_char('z'));
-        assert!(is_valid_puzzle_char('0'));
-        assert!(is_valid_puzzle_char('9'));
-        assert!(is_valid_puzzle_char(' '));
-        assert!(is_valid_puzzle_char('-'));
-        assert!(is_valid_puzzle_char('\''));
-        assert!(is_valid_puzzle_char('&'));
-        assert!(is_valid_puzzle_char('.'));
-        assert!(is_valid_puzzle_char('!'));
-        assert!(is_valid_puzzle_char('?'));
-
-        // Test invalid characters
-        assert!(!is_valid_puzzle_char('\0'));
-        assert!(!is_valid_puzzle_char('\n'));
-        assert!(!is_valid_puzzle_char('\t'));
-        assert!(!is_valid_puzzle_char('@'));
-        assert!(!is_valid_puzzle_char('#'));
-        assert!(!is_valid_puzzle_char('$'));
-        assert!(!is_valid_puzzle_char('%'));
-        assert!(!is_valid_puzzle_char('^'));
-        assert!(!is_valid_puzzle_char('*'));
-        assert!(!is_valid_puzzle_char('('));
-        assert!(!is_valid_puzzle_char(')'));
-    }
-
     /// Test complete puzzle validation with valid puzzle
     /// Integration test for all validation components
     #[test]
@@ -395,26 +302,4 @@ mod tests {
         }
     }
 
-    /// Test empty grid handling
-    /// Edge case where grid has no content
-    #[test]
-    fn test_count_expected_clues_empty() {
-        let grid: Vec<String> = vec![];
-        let (across_count, down_count) = count_expected_clues(&grid);
-
-        assert_eq!(across_count, 0);
-        assert_eq!(down_count, 0);
-    }
-
-    /// Test single cell grid
-    /// Minimal case with one cell
-    #[test]
-    fn test_count_expected_clues_single_cell() {
-        let grid = vec!["-".to_string()];
-        let (across_count, down_count) = count_expected_clues(&grid);
-
-        // Single cell can't form words, so no clues expected
-        assert_eq!(across_count, 0);
-        assert_eq!(down_count, 0);
-    }
 }
