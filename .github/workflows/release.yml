@@ -1,37 +1,57 @@
 name: release
 
 on:
-  release:
-    types: [created]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release:
-    name: release ${{ matrix.target }}
+  # Create the GitHub Release for the pushed tag. upload-assets attaches the
+  # prebuilt CLI binaries to it.
+  create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the GitHub Release
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/create-gh-release-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build and upload prebuilt binaries of the `puz` CLI only (the puz-parse
+  # library has no binary). crates.io publishing is handled separately by
+  # publish.yml.
+  upload-assets:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            archive: tar.gz
+            os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
-            archive: tar.gz tar.xz tar.zst
+            os: ubuntu-latest
           - target: x86_64-pc-windows-msvc
-            archive: zip
+            os: windows-latest
           - target: x86_64-apple-darwin
-            archive: zip
+            os: macos-latest
           - target: aarch64-apple-darwin
-            archive: zip
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # to upload assets to the GitHub Release
     steps:
       - uses: actions/checkout@v7
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.5
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: puz
+          target: ${{ matrix.target }}
+          include: README.md,LICENSE,cli/README.md
+          checksum: sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          EXTRA_FILES: "README.md LICENSE cli/README.md"
