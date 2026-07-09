@@ -1,3 +1,6 @@
+/// The 8-byte mask string for the "masked" checksums (spells "ICHEATED").
+const MASK: &[u8; 8] = b"ICHEATED";
+
 /// The `.puz` checksum: a modified CRC-16 (rotate-right, then add) applied per
 /// byte. See `PUZ.md` §Checksums for the reference algorithm.
 pub(crate) fn cksum_region(data: &[u8], mut cksum: u16) -> u16 {
@@ -6,6 +9,46 @@ pub(crate) fn cksum_region(data: &[u8], mut cksum: u16) -> u16 {
         cksum = cksum.wrapping_add(b as u16);
     }
     cksum
+}
+
+/// The four component checksums of a `.puz` file, in the order the format
+/// masks them: header (CIB), solution, fill (player grid), and text.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Components {
+    pub(crate) header: u16,
+    pub(crate) solution: u16,
+    pub(crate) fill: u16,
+    pub(crate) text: u16,
+}
+
+impl Components {
+    /// The CIB (header) checksum, over the 8 header bytes at 0x2C..0x34
+    /// (width, height, num_clues LE, bitmask LE, scrambled-tag LE).
+    pub(crate) fn cib(&self) -> u16 {
+        self.header
+    }
+
+    /// The overall/global file checksum (stored at 0x00): header, then the
+    /// solution grid, the fill grid, and the text region, chained. Extensions
+    /// are not included.
+    pub(crate) fn global(&self, solution: &[u8], fill: &[u8], text: &[u8]) -> u16 {
+        let mut c = self.header;
+        c = cksum_region(solution, c);
+        c = cksum_region(fill, c);
+        cksum_region(text, c)
+    }
+
+    /// The 8 "masked" checksum bytes stored at 0x10..0x18. Each component's low
+    /// and high bytes are XORed with the corresponding byte of "ICHEATED".
+    pub(crate) fn masked(&self) -> [u8; 8] {
+        let lows = [self.header, self.solution, self.fill, self.text];
+        let mut out = [0u8; 8];
+        for (i, c) in lows.iter().enumerate() {
+            out[i] = (*c as u8) ^ MASK[i]; // low byte ^ "ICHE"
+            out[i + 4] = ((*c >> 8) as u8) ^ MASK[i + 4]; // high byte ^ "ATED"
+        }
+        out
+    }
 }
 
 #[cfg(test)]
