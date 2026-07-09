@@ -9,9 +9,14 @@ pub(crate) struct Header {
     pub(crate) height: u8,
     pub(crate) num_clues: u16,
     pub(crate) version: String,
-    #[allow(dead_code)]
     pub(crate) bitmask: u16,
     pub(crate) is_scrambled: bool,
+    /// Raw scrambled tag value at 0x32 (0 = unscrambled).
+    pub(crate) scrambled_tag: u16,
+    /// Stored CIB checksum at 0x0E.
+    pub(crate) cib_cksum: u16,
+    /// Stored masked checksum bytes at 0x10..0x18.
+    pub(crate) masked_cksum: [u8; 8],
 }
 
 pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header, PuzError> {
@@ -32,8 +37,11 @@ pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header,
     // 0x30   | 2    | Puzzle type bitmask
     // 0x32   | 2    | Scrambled tag
 
-    // Skip CIB checksum (2) + masked checksums (8) = 10 bytes
-    skip_bytes(reader, 10)?;
+    // Capture CIB checksum (2) and masked checksums (8) for validation.
+    let cib_cksum = read_u16(reader)?;
+    let masked_bytes = read_bytes(reader, 8)?;
+    let mut masked_cksum = [0u8; 8];
+    masked_cksum.copy_from_slice(&masked_bytes);
 
     // Read version string (4 bytes)
     let version_bytes = read_bytes(reader, 4)?;
@@ -63,6 +71,9 @@ pub(crate) fn parse_header<R: Read>(reader: &mut BufReader<R>) -> Result<Header,
         version: version.trim_end_matches('\0').to_string(),
         bitmask,
         is_scrambled,
+        scrambled_tag,
+        cib_cksum,
+        masked_cksum,
     })
 }
 

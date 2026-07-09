@@ -15,6 +15,13 @@ pub enum PuzWarning {
     DataRecovery { field: String, issue: String },
     /// Puzzle is scrambled and may not display correctly
     ScrambledPuzzle { version: String },
+    /// A stored checksum did not match the recomputed value (non-fatal in
+    /// lenient parsing; many real-world files have incorrect checksums)
+    ChecksumMismatch {
+        context: String,
+        expected: u16,
+        found: u16,
+    },
 }
 
 /// Result type for parsing that includes warnings.
@@ -285,6 +292,13 @@ impl fmt::Display for PuzWarning {
             }
             PuzWarning::ScrambledPuzzle { version } => {
                 write!(f, "Puzzle is scrambled (version {version}). Solution may not be readable without descrambling.")
+            }
+            PuzWarning::ChecksumMismatch {
+                context,
+                expected,
+                found,
+            } => {
+                write!(f, "Checksum mismatch in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted.")
             }
         }
     }

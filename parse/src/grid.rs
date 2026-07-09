@@ -81,9 +81,58 @@ pub(crate) fn is_valid_puzzle_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || matches!(c, ' ' | '-' | '\'' | '&' | '.' | '!' | '?')
 }
 
+/// Flatten the `Clues` maps into the canonical `.puz` reading order.
+///
+/// Walk the blank grid row-major; at each numbered cell emit its across clue
+/// (if it starts an across word) then its down clue (if it starts a down word),
+/// incrementing the number once per numbered cell. This is the single source of
+/// truth for clue order — used by the writer to serialize clues and by parser
+/// validation to reconstruct the text-checksum region.
+pub(crate) fn order_clues(
+    blank_grid: &[String],
+    clues: &crate::types::Clues,
+) -> Result<Vec<String>, crate::error::PuzError> {
+    let mut ordered = Vec::new();
+    let height = blank_grid.len();
+    let width = if height > 0 { blank_grid[0].len() } else { 0 };
+    let mut number = 1u16;
+
+    for row in 0..height {
+        for col in 0..width {
+            let across = cell_needs_across_clue(blank_grid, row, col);
+            let down = cell_needs_down_clue(blank_grid, row, col);
+            if across || down {
+                if across {
+                    ordered.push(clue_at(&clues.across, number, "across")?);
+                }
+                if down {
+                    ordered.push(clue_at(&clues.down, number, "down")?);
+                }
+                number += 1;
+            }
+        }
+    }
+    Ok(ordered)
+}
+
+fn clue_at(
+    map: &std::collections::HashMap<u16, String>,
+    n: u16,
+    dir: &str,
+) -> Result<String, crate::error::PuzError> {
+    map.get(&n)
+        .cloned()
+        .ok_or_else(|| crate::error::PuzError::InvalidClues {
+            reason: format!("missing {dir} clue for number {n}"),
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::PuzError;
+    use crate::types::Clues;
+    use std::collections::HashMap;
 
     #[test]
     fn test_is_playable_square() {
@@ -314,5 +363,102 @@ mod tests {
         assert_ne!(FREE_SQUARE, TAKEN_SQUARE);
         assert!(is_playable_square(Some(FREE_SQUARE)));
         assert!(!is_playable_square(Some(TAKEN_SQUARE)));
+    }
+
+    // --- order_clues ---
+
+    #[test]
+    fn test_order_simple_2x2_open_grid() {
+        // 2x2 all-open: (0,0) starts across #1 and down #1; (0,1) down #2;
+        // (1,0) across #3.
+        let blank = vec!["--".to_string(), "--".to_string()];
+        let mut across = HashMap::new();
+        across.insert(1, "a1".to_string());
+        across.insert(3, "a3".to_string());
+        let mut down = HashMap::new();
+        down.insert(1, "d1".to_string());
+        down.insert(2, "d2".to_string());
+        let clues = Clues { across, down };
+        assert_eq!(
+            order_clues(&blank, &clues).unwrap(),
+            vec!["a1", "d1", "d2", "a3"]
+        );
+    }
+
+    #[test]
+    fn test_order_3x3_with_center_block() {
+        // Verified empirically against parser numbering.
+        let blank = vec![
+            "---".to_string(),
+            "-.-".to_string(),
+            "---".to_string(),
+        ];
+        let mut across = HashMap::new();
+        across.insert(1, "1a".to_string());
+        across.insert(3, "3a".to_string());
+        let mut down = HashMap::new();
+        down.insert(1, "1d".to_string());
+        down.insert(2, "2d".to_string());
+        let clues = Clues { across, down };
+        assert_eq!(
+            order_clues(&blank, &clues).unwrap(),
+            vec!["1a", "1d", "2d", "3a"]
+        );
+    }
+
+    #[test]
+    fn test_order_emits_across_before_down_at_same_number() {
+        let blank = vec!["--".to_string(), "--".to_string()];
+        let mut across = HashMap::new();
+        across.insert(1, "ACROSS".to_string());
+        across.insert(3, "x".to_string());
+        let mut down = HashMap::new();
+        down.insert(1, "DOWN".to_string());
+        down.insert(2, "y".to_string());
+        let clues = Clues { across, down };
+        let ordered = order_clues(&blank, &clues).unwrap();
+        assert_eq!(ordered[0], "ACROSS");
+        assert_eq!(ordered[1], "DOWN");
+    }
+
+    #[test]
+    fn test_order_missing_clue_errors() {
+        let blank = vec!["--".to_string(), "--".to_string()];
+        let mut across = HashMap::new();
+        across.insert(1, "a1".to_string());
+        let clues = Clues {
+            across,
+            down: HashMap::new(),
+        };
+        assert!(matches!(
+            order_clues(&blank, &clues).unwrap_err(),
+            PuzError::InvalidClues { .. }
+        ));
+    }
+
+    #[test]
+    fn test_order_ignores_extra_unreferenced_clues() {
+        let blank = vec!["--".to_string(), "--".to_string()];
+        let mut across = HashMap::new();
+        across.insert(1, "a1".to_string());
+        across.insert(3, "a3".to_string());
+        across.insert(99, "orphan".to_string());
+        let mut down = HashMap::new();
+        down.insert(1, "d1".to_string());
+        down.insert(2, "d2".to_string());
+        let clues = Clues { across, down };
+        let ordered = order_clues(&blank, &clues).unwrap();
+        assert_eq!(ordered, vec!["a1", "d1", "d2", "a3"]);
+        assert!(!ordered.contains(&"orphan".to_string()));
+    }
+
+    #[test]
+    fn test_order_empty_grid_yields_no_clues() {
+        let blank: Vec<String> = vec![];
+        let clues = Clues {
+            across: HashMap::new(),
+            down: HashMap::new(),
+        };
+        assert!(order_clues(&blank, &clues).unwrap().is_empty());
     }
 }

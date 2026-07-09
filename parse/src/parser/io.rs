@@ -2,7 +2,7 @@ use crate::error::PuzError;
 use byteorder::{ByteOrder, LittleEndian};
 use std::io::{BufReader, Read};
 
-pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<(), PuzError> {
+pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<u16, PuzError> {
     // .puz file format starts with:
     // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
     //
@@ -11,8 +11,8 @@ pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<
     // 0x00   | 2    | Overall file checksum
     // 0x02   | 12   | Magic string "ACROSS&DOWN\0"
 
-    // Skip the 2-byte overall file checksum
-    skip_bytes(reader, 2)?;
+    // Capture the 2-byte overall (global) file checksum for later validation.
+    let global_cksum = read_u16(reader)?;
 
     // Read and validate the 12-byte magic string
     let mut magic = [0u8; 12];
@@ -25,7 +25,7 @@ pub(crate) fn validate_file_magic<R: Read>(reader: &mut BufReader<R>) -> Result<
         });
     }
 
-    Ok(())
+    Ok(global_cksum)
 }
 
 pub(crate) fn skip_bytes<R: Read>(reader: &mut BufReader<R>, count: usize) -> Result<(), PuzError> {
