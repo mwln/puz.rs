@@ -17,7 +17,7 @@ jobs:
     name: security audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: security audit
         uses: rustsec/audit-check@v2.0.0
         with:
@@ -31,7 +31,7 @@ jobs:
     # on the weekly schedule and manual dispatch, not on push/pull_request.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install rust
         uses: dtolnay/rust-toolchain@stable
       - name: cache cargo tools
