@@ -1,0 +1,13 @@
+# Rust formatting is owned by rustfmt; this only covers repo-wide whitespace
+# rules and the non-Rust files rustfmt doesn't touch.
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.{yml,yaml,toml,md}]
+indent_style = space
+indent_size = 2
