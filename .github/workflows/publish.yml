@@ -3,14 +3,40 @@ name: publish
 on:
   push:
     tags: ['v*']
+    branches: [main]
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Validates that both crates package and build cleanly for release on every
+  # push to main, without publishing anything. Needs no crates.io auth because
+  # `--dry-run` aborts before upload. Catches packaging/metadata/build
+  # regressions long before an actual `v*` release tag is cut.
+  dry-run:
+    name: publish dry run
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: dry-run publish puz-parse
+        run: cargo publish -p puz-parse --dry-run
+      - name: dry-run publish puz
+        run: cargo publish -p puz --dry-run
+
   publish:
     name: publish to crates.io
+    # Publishing is strictly tag-driven: only a `v*` tag push publishes. A push
+    # to main or a manual workflow_dispatch runs the dry-run job only.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Trusted Publishing must be configured on crates.io for both the
