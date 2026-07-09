@@ -7,7 +7,10 @@ push = true
 allow-branch = ["main"]
 
 # ci
-publish = true # allows `cargo-release` to handle crates.io publishing
+# Publishing is handled in CI by .github/workflows/publish.yml, which runs
+# `cargo publish` via crates.io Trusted Publishing (OIDC) when a `v*` tag is
+# pushed. cargo-release only bumps versions, commits, tags, and pushes the tag.
+publish = false
 verify = true
 consolidate-commits = true
 
