@@ -5,6 +5,7 @@ use crate::{
     types::Puzzle,
 };
 
+mod extensions;
 mod grids;
 mod header;
 
@@ -62,11 +63,19 @@ pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
     header[0x0E..0x10].copy_from_slice(&components.cib().to_le_bytes());
     header[0x10..0x18].copy_from_slice(&components.masked());
 
+    // Extension sections (GRBS/RTBL/GEXT) follow the strings. They carry their
+    // own per-section checksums and are NOT part of the header checksums.
+    let extension_bytes =
+        extensions::serialize_extensions(&puzzle.extensions, info.width, info.height)?;
+
     // --- Assemble ---
-    let mut out = Vec::with_capacity(header.len() + grid_bytes.len() + string_bytes.len());
+    let mut out = Vec::with_capacity(
+        header.len() + grid_bytes.len() + string_bytes.len() + extension_bytes.len(),
+    );
     out.extend_from_slice(&header);
     out.extend_from_slice(&grid_bytes);
     out.extend_from_slice(&string_bytes);
+    out.extend_from_slice(&extension_bytes);
     Ok(out)
 }
 
@@ -114,6 +123,45 @@ mod tests {
         let bytes = to_bytes(&p).unwrap();
         let reparsed = parse_bytes(&bytes).unwrap();
         assert_eq!(reparsed, p);
+    }
+
+    #[test]
+    fn test_round_trip_with_rebus() {
+        let mut p = sample_puzzle();
+        let mut table = HashMap::new();
+        table.insert(1u8, "HEART".to_string());
+        p.extensions.rebus = Some(Rebus {
+            // rebus key 1 at cell (0,0); solution letter there is 'A'
+            grid: vec![vec![1, 0], vec![0, 0]],
+            table,
+        });
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    #[test]
+    fn test_round_trip_with_circles() {
+        let mut p = sample_puzzle();
+        p.extensions.circles = Some(vec![vec![true, false], vec![false, true]]);
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    #[test]
+    fn test_round_trip_with_given() {
+        let mut p = sample_puzzle();
+        p.extensions.given = Some(vec![vec![false, true], vec![true, false]]);
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+    }
+
+    #[test]
+    fn test_round_trip_with_circles_and_given() {
+        let mut p = sample_puzzle();
+        p.extensions.circles = Some(vec![vec![true, false], vec![false, false]]);
+        p.extensions.given = Some(vec![vec![false, false], vec![false, true]]);
+        let bytes = to_bytes(&p).unwrap();
+        assert_eq!(parse_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
