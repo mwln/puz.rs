@@ -77,10 +77,12 @@ mod encoding;
 mod error;
 mod grid;
 mod parser;
+mod puzzle;
 mod types;
 mod writer;
 
 pub use error::{ParseResult, PuzError, PuzWarning};
+pub use puzzle::Puzzle;
 pub use types::*;
 
 use std::io::Read;
