@@ -10,6 +10,7 @@
 use crate::{
     encoding::{encode_nul_terminated, encode_windows_1252},
     error::PuzError,
+    parser::RawStrings,
     types::{Grid, PuzzleInfo},
 };
 
@@ -125,6 +126,39 @@ pub(crate) fn text_cksum_bytes(info: &PuzzleInfo, clues: &[String]) -> Result<Ve
     Ok(bytes)
 }
 
+/// Byte-faithful variant of [`text_cksum_bytes`] that uses the raw string bytes
+/// captured during parsing instead of re-encoding decoded strings.
+///
+/// This matters when a file stores a character as UTF-8 that is also
+/// representable in Windows-1252: decode + re-encode is not a round-trip and
+/// would change the byte count, so the checksum must use the original bytes.
+/// The skip/terminator rules are identical to [`text_cksum_bytes`].
+pub(crate) fn text_cksum_bytes_raw(version: &str, raw: &RawStrings) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    if !raw.title.is_empty() {
+        bytes.extend_from_slice(&raw.title);
+        bytes.push(0);
+    }
+    if !raw.author.is_empty() {
+        bytes.extend_from_slice(&raw.author);
+        bytes.push(0);
+    }
+    if !raw.copyright.is_empty() {
+        bytes.extend_from_slice(&raw.copyright);
+        bytes.push(0);
+    }
+    for clue in &raw.clues {
+        if !clue.is_empty() {
+            bytes.extend_from_slice(clue); // clues: no NUL terminator
+        }
+    }
+    if version_at_least_1_3(version) && !raw.notes.is_empty() {
+        bytes.extend_from_slice(&raw.notes);
+        bytes.push(0);
+    }
+    bytes
+}
+
 /// Parse the leading `major.minor` of the version string and return true if it
 /// is >= 1.3 (the version from which notes are included in the text checksum).
 pub(crate) fn version_at_least_1_3(version: &str) -> bool {
@@ -168,6 +202,7 @@ pub(crate) fn verify(
     info: &PuzzleInfo,
     grid: &Grid,
     ordered_clues: &[String],
+    raw_strings: &RawStrings,
     bitmask: u16,
     scrambled: u16,
     stored: &Stored,
@@ -175,16 +210,25 @@ pub(crate) fn verify(
     let solution_bytes: Vec<u8> = grid.solution.iter().flat_map(|r| r.bytes()).collect();
     let fill_bytes: Vec<u8> = grid.blank.iter().flat_map(|r| r.bytes()).collect();
 
-    let components = compute(
-        info,
+    // Use the raw string bytes captured during parsing so the text checksum is
+    // byte-faithful: decoding then re-encoding is not always a round-trip (e.g.
+    // a character stored as UTF-8 that is also representable in Windows-1252).
+    let text_region = text_cksum_bytes_raw(&info.version, raw_strings);
+
+    let cib_region = cib_bytes(
+        info.width,
+        info.height,
+        ordered_clues.len() as u16,
         bitmask,
         scrambled,
-        &solution_bytes,
-        &fill_bytes,
-        ordered_clues,
-    )?;
+    );
+    let components = Components {
+        header: cksum_region(&cib_region, 0),
+        solution: cksum_region(&solution_bytes, 0),
+        fill: cksum_region(&fill_bytes, 0),
+        text: cksum_region(&text_region, 0),
+    };
 
-    let text_region = text_cksum_bytes(info, ordered_clues)?;
     let global = components.global(&solution_bytes, &fill_bytes, &text_region);
     let cib = components.cib();
     let masked = components.masked();
@@ -277,5 +321,87 @@ mod tests {
             text: 0,
         };
         assert_eq!(&c.masked(), MASK);
+    }
+
+    /// Build a valid `.puz` byte buffer for a 2x2 all-open puzzle whose string
+    /// fields are encoded as **UTF-8** rather than Windows-1252, with checksums
+    /// computed over those UTF-8 bytes.
+    ///
+    /// This reproduces real-world files that store a character (e.g. `©`) as its
+    /// UTF-8 bytes even though it is representable in a single Windows-1252 byte.
+    /// Our parser decodes those UTF-8 bytes back to one `char`; validation must
+    /// therefore checksum the original bytes, not a re-encoding of the decoded
+    /// string, or it will wrongly reject the file.
+    fn build_utf8_encoded_puz(title: &str, author: &str, copyright: &str, notes: &str) -> Vec<u8> {
+        // 2x2 all-open grid: cells (0,0)#1 across+down, (0,1)#2 down, (1,0)#3 across.
+        let solution = b"ABCD";
+        let fill = b"----";
+        let clues = ["a1", "d1", "d2", "a3"]; // reading order
+        let version = "1.3";
+
+        // String fields as they appear in the file, UTF-8 encoded.
+        let z = |s: &str| {
+            let mut v = s.as_bytes().to_vec();
+            v.push(0);
+            v
+        };
+        let mut strings = Vec::new();
+        strings.extend(z(title));
+        strings.extend(z(author));
+        strings.extend(z(copyright));
+        for c in &clues {
+            strings.extend(z(c));
+        }
+        strings.extend(z(notes));
+
+        // Text checksum region (skip empties; clues without NUL; notes for v>=1.3).
+        let mut text = Vec::new();
+        for field in [title, author, copyright] {
+            if !field.is_empty() {
+                text.extend(z(field));
+            }
+        }
+        for c in &clues {
+            if !c.is_empty() {
+                text.extend_from_slice(c.as_bytes());
+            }
+        }
+        if !notes.is_empty() {
+            text.extend(z(notes));
+        }
+
+        let components = Components {
+            header: cksum_region(&cib_bytes(2, 2, clues.len() as u16, 0x0001, 0), 0),
+            solution: cksum_region(solution, 0),
+            fill: cksum_region(fill, 0),
+            text: cksum_region(&text, 0),
+        };
+        let global = components.global(solution, fill, &text);
+
+        // Assemble the 52-byte header with real checksums, then the body.
+        let mut out = vec![0u8; 0x34];
+        out[0x00..0x02].copy_from_slice(&global.to_le_bytes());
+        out[0x02..0x0E].copy_from_slice(b"ACROSS&DOWN\0");
+        out[0x0E..0x10].copy_from_slice(&components.cib().to_le_bytes());
+        out[0x10..0x18].copy_from_slice(&components.masked());
+        out[0x18..0x18 + version.len()].copy_from_slice(version.as_bytes());
+        out[0x2C] = 2; // width
+        out[0x2D] = 2; // height
+        out[0x2E..0x30].copy_from_slice(&(clues.len() as u16).to_le_bytes());
+        out[0x30..0x32].copy_from_slice(&0x0001u16.to_le_bytes());
+        out.extend_from_slice(solution);
+        out.extend_from_slice(fill);
+        out.extend(strings);
+        out
+    }
+
+    #[test]
+    fn test_validate_accepts_utf8_encoded_1252_char() {
+        // A file whose copyright is "© Sample Corp Inc." stored as UTF-8. The
+        // char © is representable in Windows-1252, so a decode+re-encode changes
+        // the byte count; validation must use the raw bytes and accept the file.
+        let bytes = build_utf8_encoded_puz("Test", "Author", "© Sample Corp Inc.", "");
+        crate::validate_bytes(&bytes)
+            .expect("valid file with a UTF-8-encoded copyright must pass validation");
     }
 }

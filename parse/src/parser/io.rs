@@ -55,9 +55,16 @@ pub(crate) fn read_bytes<R: Read>(
     Ok(buffer)
 }
 
-pub(crate) fn read_string_until_nul<R: Read>(
+/// Read a NUL-terminated string, returning both the decoded `String` and the
+/// raw bytes as they appeared in the file (excluding the terminator).
+///
+/// The raw bytes are needed for byte-faithful checksum validation: decoding and
+/// re-encoding is not always a round-trip (e.g. a character stored as UTF-8 that
+/// is also representable in Windows-1252), so checksums must be computed over
+/// the original bytes.
+pub(crate) fn read_string_until_nul_raw<R: Read>(
     reader: &mut BufReader<R>,
-) -> Result<String, PuzError> {
+) -> Result<(String, Vec<u8>), PuzError> {
     let mut bytes = Vec::new();
     loop {
         let mut byte = [0u8; 1];
@@ -67,7 +74,8 @@ pub(crate) fn read_string_until_nul<R: Read>(
         }
         bytes.push(byte[0]);
     }
-    crate::encoding::decode_puz_string(&bytes)
+    let decoded = crate::encoding::decode_puz_string(&bytes)?;
+    Ok((decoded, bytes))
 }
 
 pub(crate) fn read_remaining_data<R: Read>(reader: &mut BufReader<R>) -> Result<Vec<u8>, PuzError> {
@@ -239,11 +247,12 @@ mod tests {
         let data = vec![72, 101, 108, 108, 111, 0, 87, 111, 114, 108, 100, 0];
         let mut reader = BufReader::new(Cursor::new(data));
 
-        let result = read_string_until_nul(&mut reader).unwrap();
-        assert_eq!(result, "Hello");
+        let (decoded, raw) = read_string_until_nul_raw(&mut reader).unwrap();
+        assert_eq!(decoded, "Hello");
+        assert_eq!(raw, b"Hello");
 
-        let result = read_string_until_nul(&mut reader).unwrap();
-        assert_eq!(result, "World");
+        let (decoded, _) = read_string_until_nul_raw(&mut reader).unwrap();
+        assert_eq!(decoded, "World");
     }
 
     /// Test reading null-terminated string with no terminator
@@ -253,7 +262,7 @@ mod tests {
         let data = vec![72, 101, 108, 108, 111]; // "Hello" with no null terminator
         let mut reader = BufReader::new(Cursor::new(data));
 
-        let result = read_string_until_nul(&mut reader);
+        let result = read_string_until_nul_raw(&mut reader);
         assert!(result.is_err());
         matches!(result.unwrap_err(), PuzError::IoError { .. });
     }

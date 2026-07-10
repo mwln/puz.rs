@@ -18,6 +18,7 @@ use grids::parse_grids;
 use header::parse_header;
 use io::{read_remaining_data, validate_file_magic};
 use strings::parse_strings;
+pub(crate) use strings::RawStrings;
 use validation::validate_puzzle;
 
 pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
@@ -62,6 +63,7 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
 
     let clues = process_clues(&grids.blank, &strings.clues)?;
 
+    let raw_strings = strings.raw;
     let puzzle = Puzzle {
         info: PuzzleInfo {
             title: strings.title,
@@ -81,12 +83,14 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
     validate_puzzle(&puzzle)?;
 
     // Checksum validation: reconstruct the clue order and recompute checksums
-    // independently of the writer, then compare with the stored values.
+    // independently of the writer, then compare with the stored values. When
+    // available, the raw string bytes make the text checksum byte-faithful.
     let ordered_clues = crate::grid::order_clues(&puzzle.grid.blank, &puzzle.clues)?;
     match crate::checksums::verify(
         &puzzle.info,
         &puzzle.grid,
         &ordered_clues,
+        &raw_strings,
         bitmask,
         scrambled_tag,
         &stored,
