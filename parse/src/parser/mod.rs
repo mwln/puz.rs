@@ -74,6 +74,7 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
             height: header.height,
             version: header.version,
             is_scrambled: header.is_scrambled,
+            is_diagramless: false,
         },
         grid: grids,
         clues,

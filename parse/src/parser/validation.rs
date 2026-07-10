@@ -135,6 +135,7 @@ mod tests {
                 height,
                 version: "1.3".to_string(),
                 is_scrambled: false,
+                is_diagramless: false,
             },
             grid: Grid {
                 blank: vec!["---".to_string(), "---".to_string(), "---".to_string()],
@@ -363,6 +364,7 @@ mod tests {
                 height,
                 version: "1.3".to_string(),
                 is_scrambled: false,
+                is_diagramless: false,
             },
             grid: Grid { blank, solution },
             clues: Clues {

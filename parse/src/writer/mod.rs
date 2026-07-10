@@ -158,6 +158,7 @@ mod tests {
                 height: 2,
                 version: "1.3".into(),
                 is_scrambled: false,
+                is_diagramless: false,
             },
             grid: Grid {
                 solution: vec!["AB".into(), "CD".into()],
@@ -295,6 +296,7 @@ mod tests {
                 height: 5,
                 version: "1.3".into(),
                 is_scrambled: false,
+                is_diagramless: false,
             },
             grid: Grid { solution, blank },
             clues: Clues { across, down },
