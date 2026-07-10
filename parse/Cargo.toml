@@ -5,7 +5,10 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-rust-version.workspace = true
+# The library itself only needs edition 2024 (Rust 1.85). The workspace
+# rust-version (1.88) is driven by the CLI's `comfy-table` dependency and does
+# not apply to this crate, so consumers of `puz-parse` keep the lower MSRV.
+rust-version = "1.85.0"
 description = "A Rust library for parsing .puz crossword puzzle files"
 readme = "README.md"
 homepage = "https://github.com/mwln/puz.rs"

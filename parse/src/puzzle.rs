@@ -2,7 +2,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::error::{ParseResult, PuzError};
-use crate::grid::{cell_needs_across_clue, cell_needs_down_clue, FREE_SQUARE, TAKEN_SQUARE};
+use crate::grid::{FREE_SQUARE, TAKEN_SQUARE, cell_needs_across_clue, cell_needs_down_clue};
 use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
 
 /// A complete crossword puzzle.

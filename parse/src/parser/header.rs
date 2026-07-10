@@ -1,4 +1,4 @@
-use super::io::{read_bytes, read_u16, read_u8, skip_bytes};
+use super::io::{read_bytes, read_u8, read_u16, skip_bytes};
 use crate::encoding::decode_puz_string;
 use crate::error::PuzError;
 use std::io::{BufReader, Read};
@@ -315,7 +315,7 @@ mod tests {
         data.extend_from_slice(&[0; 16]); // Skip bytes
         data.push(15); // width
         data.push(15); // height
-                       // Missing num_clues, bitmask, and scrambled_tag
+        // Missing num_clues, bitmask, and scrambled_tag
 
         let mut reader = BufReader::new(Cursor::new(data));
         let result = parse_header(&mut reader);

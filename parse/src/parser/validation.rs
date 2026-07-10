@@ -1,6 +1,6 @@
 use crate::{
     error::{PuzError, PuzWarning},
-    grid::{count_clues, is_standard_cell_char, TAKEN_SQUARE},
+    grid::{TAKEN_SQUARE, count_clues, is_standard_cell_char},
     puzzle::Puzzle,
 };
 
