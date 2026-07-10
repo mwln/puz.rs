@@ -196,6 +196,18 @@ pub(crate) fn compute(
 
 /// Verify a puzzle's recomputed checksums against the values stored in the file.
 ///
+/// Recover the original `.puz` bytes of a grid.
+///
+/// The parser builds each grid row with `b as char`, mapping every file byte to
+/// a char in U+0000..U+00FF. `c as u8` is the exact inverse, so this returns the
+/// bytes as they were stored (unlike `str::bytes()`, which would UTF-8 re-encode
+/// cells above U+007F).
+fn grid_bytes(rows: &[String]) -> Vec<u8> {
+    rows.iter()
+        .flat_map(|row| row.chars().map(|c| c as u8))
+        .collect()
+}
+
 /// Returns the first mismatching checksum as [`PuzError::InvalidChecksum`], or
 /// `Ok(())` if all three (global, CIB, masked) match.
 pub(crate) fn verify(
@@ -207,8 +219,12 @@ pub(crate) fn verify(
     scrambled: u16,
     stored: &Stored,
 ) -> Result<(), PuzError> {
-    let solution_bytes: Vec<u8> = grid.solution.iter().flat_map(|r| r.bytes()).collect();
-    let fill_bytes: Vec<u8> = grid.blank.iter().flat_map(|r| r.bytes()).collect();
+    // Grid cells are decoded byte-for-byte via `b as char`, so each cell char is
+    // in U+0000..U+00FF. Recover the original byte with `c as u8` (the exact
+    // inverse). Using `str::bytes()` here would UTF-8 re-encode a high-byte cell
+    // (e.g. U+00C2 -> 0xC3 0x82) and checksum the wrong bytes.
+    let solution_bytes: Vec<u8> = grid_bytes(&grid.solution);
+    let fill_bytes: Vec<u8> = grid_bytes(&grid.blank);
 
     // Use the raw string bytes captured during parsing so the text checksum is
     // byte-faithful: decoding then re-encoding is not always a round-trip (e.g.
@@ -324,17 +340,22 @@ mod tests {
     }
 
     /// Build a valid `.puz` byte buffer for a 2x2 all-open puzzle whose string
-    /// fields are encoded as **UTF-8** rather than Windows-1252, with checksums
-    /// computed over those UTF-8 bytes.
+    /// fields are UTF-8 encoded, with checksums computed over the actual bytes
+    /// written (both the raw `solution` grid bytes and the UTF-8 string bytes).
     ///
-    /// This reproduces real-world files that store a character (e.g. `©`) as its
-    /// UTF-8 bytes even though it is representable in a single Windows-1252 byte.
-    /// Our parser decodes those UTF-8 bytes back to one `char`; validation must
-    /// therefore checksum the original bytes, not a re-encoding of the decoded
-    /// string, or it will wrongly reject the file.
-    fn build_utf8_encoded_puz(title: &str, author: &str, copyright: &str, notes: &str) -> Vec<u8> {
+    /// This lets tests reproduce files whose bytes don't survive our
+    /// decode/re-encode round-trip: a string character stored as UTF-8 that is
+    /// also a single Windows-1252 byte, or a high grid byte like `0xC2` that
+    /// decodes to a multi-byte char. Validation must checksum the original
+    /// bytes, so these files must pass.
+    fn build_puz(
+        solution: &[u8],
+        title: &str,
+        author: &str,
+        copyright: &str,
+        notes: &str,
+    ) -> Vec<u8> {
         // 2x2 all-open grid: cells (0,0)#1 across+down, (0,1)#2 down, (1,0)#3 across.
-        let solution = b"ABCD";
         let fill = b"----";
         let clues = ["a1", "d1", "d2", "a3"]; // reading order
         let version = "1.3";
@@ -400,8 +421,19 @@ mod tests {
         // A file whose copyright is "© Sample Corp Inc." stored as UTF-8. The
         // char © is representable in Windows-1252, so a decode+re-encode changes
         // the byte count; validation must use the raw bytes and accept the file.
-        let bytes = build_utf8_encoded_puz("Test", "Author", "© Sample Corp Inc.", "");
+        let bytes = build_puz(b"ABCD", "Test", "Author", "© Sample Corp Inc.", "");
         crate::validate_bytes(&bytes)
             .expect("valid file with a UTF-8-encoded copyright must pass validation");
+    }
+
+    #[test]
+    fn test_validate_accepts_high_byte_grid_cell() {
+        // A solution cell holds byte 0xC2 (a marker some puzzles use). The
+        // parser decodes it via `b as char` to U+00C2. The grid checksum must be
+        // computed over the original byte 0xC2, not a UTF-8 re-encoding of the
+        // decoded char (which would be 0xC3 0x82), or validation wrongly fails.
+        let bytes = build_puz(&[0xC2, b'B', b'C', b'D'], "T", "A", "", "");
+        crate::validate_bytes(&bytes)
+            .expect("valid file with a high-byte grid cell must pass validation");
     }
 }
