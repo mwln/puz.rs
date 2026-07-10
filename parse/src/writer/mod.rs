@@ -210,8 +210,12 @@ mod tests {
             .diagramless(true);
 
         let bytes = to_bytes(&p).unwrap();
-        let reparsed = parse_bytes(&bytes).unwrap();
 
+        // The file's stored checksums are over the emitted ':' bytes, and the
+        // verifier must checksum the same bytes, so strict validation passes.
+        crate::validate_bytes(&bytes).expect("diagramless file must pass strict validation");
+
+        let reparsed = parse_bytes(&bytes).unwrap();
         assert!(reparsed.info.is_diagramless);
         assert_eq!(reparsed.grid.solution[0], "AB."); // ':' normalized back to '.'
         assert_eq!(reparsed, p);

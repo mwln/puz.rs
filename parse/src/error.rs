@@ -315,7 +315,11 @@ impl fmt::Display for PuzWarning {
                 row,
                 col,
             } => {
-                write!(f, "Solution cell ({row}, {col}) has non-standard character {character:?} with no rebus entry at that position.")
+                write!(
+                    f,
+                    "Solution cell ({row}, {col}) has non-standard character '{character}' (U+{code:04X}) with no rebus entry at that position.",
+                    code = *character as u32
+                )
             }
         }
     }
