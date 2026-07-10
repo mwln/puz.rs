@@ -114,6 +114,27 @@ the grid, and every string must be encodable in Windows-1252. Scrambled puzzles
 are rejected with `PuzError::UnsupportedFeature` (writing the scramble algorithm
 is not currently supported).
 
+## Building a puzzle
+
+`Puzzle::new` builds a valid puzzle from solution rows (using `.` for black
+squares) and derives the blank grid and placeholder clues. Chained setters
+refine it:
+
+```rust
+use puz_parse::Puzzle;
+
+fn main() -> Result<(), puz_parse::PuzError> {
+    let puzzle = Puzzle::new(["AB.", "CDE"])?
+        .title("Example")
+        .author("Me")
+        .diagramless(true);
+
+    let bytes = puz_parse::to_bytes(&puzzle)?;
+    let _ = bytes;
+    Ok(())
+}
+```
+
 ## Validation
 
 `parse` is lenient about checksums — many real-world `.puz` files have incorrect
@@ -144,7 +165,7 @@ fn main() {
 ```text
 Puzzle
 ├── info: PuzzleInfo    title, author, copyright, notes, width, height,
-│                       version, is_scrambled
+│                       version, is_scrambled, is_diagramless
 ├── grid: Grid          blank + solution, each a Vec<String> of rows
 ├── clues: Clues        across + down, each a HashMap<u16, String> keyed by
 │                       clue number
@@ -156,6 +177,12 @@ Grid rows are strings of single-character cells:
 - `.` is a black/blocked square.
 - `-` is an empty square (in the blank grid).
 - Any letter or number is cell content.
+
+Diagramless puzzles (where the solver isn't shown the black squares) store
+their black squares as `:` on disk. They parse normally: the `:` is normalized
+to `.` in the grid, and `info.is_diagramless` is set to `true`. Writing a puzzle
+with `is_diagramless` set emits `:` black squares again, so a diagramless puzzle
+round-trips.
 
 `extensions` is where the less common features live, and each is `Option`:
 
