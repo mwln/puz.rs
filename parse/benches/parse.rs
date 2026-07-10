@@ -14,8 +14,8 @@
 
 mod fixtures;
 
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use puz_parse::{to_bytes, Puzzle};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use puz_parse::{Puzzle, to_bytes};
 use std::hint::black_box;
 
 fn bench_parse(c: &mut Criterion) {

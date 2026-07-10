@@ -106,6 +106,7 @@ mod error;
 mod grid;
 mod parser;
 mod puzzle;
+pub mod raw;
 mod types;
 mod writer;
 
