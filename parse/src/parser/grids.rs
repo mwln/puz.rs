@@ -6,7 +6,7 @@ pub(crate) fn parse_grids<R: Read>(
     reader: &mut BufReader<R>,
     width: u8,
     height: u8,
-) -> Result<Grid, PuzError> {
+) -> Result<(Grid, bool), PuzError> {
     // Grid data format (after header and before strings):
     // See: https://github.com/mwln/puz.rs/blob/main/PUZ.md
     //
@@ -18,16 +18,35 @@ pub(crate) fn parse_grids<R: Read>(
     // - '.' (0x2E) = black/blocked square
     // - '-' (0x2D) = empty square (in blank grid)
     // - A-Z, 0-9 = letter/number content
+    //
+    // Diagramless puzzles store black squares as ':' (0x3A) instead of '.'.
+    // These are detected here and normalized to '.' so downstream code, which
+    // keys on '.', is unchanged.
 
     let board_size = (width as usize) * (height as usize);
 
     // Read solution grid (width * height bytes)
     let solution_bytes = read_bytes(reader, board_size)?;
-    let solution_chars: String = solution_bytes.iter().map(|&b| b as char).collect();
 
     // Read blank grid (width * height bytes)
     let blank_bytes = read_bytes(reader, board_size)?;
-    let blank_chars: String = blank_bytes.iter().map(|&b| b as char).collect();
+
+    // Diagramless puzzles store black squares as ':' (0x3A) instead of '.'.
+    // Detect by content: ':' appears only in diagramless grids (verified across
+    // the corpus), and it is the authoritative signal (the header bitmask is
+    // sometimes wrong). Normalize ':' to '.' so downstream code, which keys on
+    // '.', is unchanged.
+    let is_diagramless = solution_bytes.contains(&b':') || blank_bytes.contains(&b':');
+
+    let normalize = |b: u8| -> char {
+        if b == b':' {
+            '.'
+        } else {
+            b as char
+        }
+    };
+    let solution_chars: String = solution_bytes.iter().map(|&b| normalize(b)).collect();
+    let blank_chars: String = blank_bytes.iter().map(|&b| normalize(b)).collect();
 
     // Convert flat strings to row-based grids
     let solution = string_to_grid(&solution_chars, width as usize);
@@ -36,7 +55,7 @@ pub(crate) fn parse_grids<R: Read>(
     // Ensure blocked squares match between grids
     validate_grid_consistency(&solution, &blank, width, height)?;
 
-    Ok(Grid { blank, solution })
+    Ok((Grid { blank, solution }, is_diagramless))
 }
 
 fn string_to_grid(s: &str, width: usize) -> Vec<String> {
@@ -114,7 +133,7 @@ mod tests {
         data.extend_from_slice(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution.len(), 3);
         assert_eq!(grid.blank.len(), 3);
@@ -146,11 +165,44 @@ mod tests {
         data.extend_from_slice(&blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution[0].chars().count(), 2);
         assert_eq!(grid.solution[0], "\u{00C2}B");
         assert_eq!(grid.blank[0], "--");
+    }
+
+    /// A grid containing ':' is diagramless; every ':' becomes '.'.
+    #[test]
+    fn test_parse_grids_diagramless_normalizes_colon() {
+        let width = 2u8;
+        let height = 2u8;
+        let solution_data = b":BC:"; // colons at (0,0) and (1,1)
+        let blank_data = b":--:";
+
+        let mut data = Vec::new();
+        data.extend_from_slice(solution_data);
+        data.extend_from_slice(blank_data);
+
+        let mut reader = BufReader::new(Cursor::new(data));
+        let (grid, is_diagramless) = parse_grids(&mut reader, width, height).unwrap();
+
+        assert!(is_diagramless);
+        assert_eq!(grid.solution, vec![".B".to_string(), "C.".to_string()]);
+        assert_eq!(grid.blank, vec![".-".to_string(), "-.".to_string()]);
+    }
+
+    /// No ':' anywhere -> normal puzzle, unchanged.
+    #[test]
+    fn test_parse_grids_no_colon_is_not_diagramless() {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"AB.D"); // solution with a normal '.' black square
+        data.extend_from_slice(b"--.-"); // blank
+        let mut reader = BufReader::new(Cursor::new(data));
+        let (grid, is_diagramless) = parse_grids(&mut reader, 2, 2).unwrap();
+
+        assert!(!is_diagramless);
+        assert_eq!(grid.solution, vec!["AB".to_string(), ".D".to_string()]);
     }
 
     /// Test parsing grids with all black squares
@@ -168,7 +220,7 @@ mod tests {
         data.extend_from_slice(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution, vec!["..".to_string(), "..".to_string()]);
         assert_eq!(grid.blank, vec!["..".to_string(), "..".to_string()]);
@@ -189,7 +241,7 @@ mod tests {
         data.extend_from_slice(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution, vec!["AB".to_string(), "CD".to_string()]);
         assert_eq!(grid.blank, vec!["--".to_string(), "--".to_string()]);
@@ -210,7 +262,7 @@ mod tests {
         data.extend_from_slice(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution, vec!["A".to_string()]);
         assert_eq!(grid.blank, vec!["-".to_string()]);
@@ -243,7 +295,7 @@ mod tests {
         data.extend(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let grid = parse_grids(&mut reader, width, height).unwrap();
+        let (grid, _) = parse_grids(&mut reader, width, height).unwrap();
 
         assert_eq!(grid.solution.len(), 15);
         assert_eq!(grid.blank.len(), 15);
