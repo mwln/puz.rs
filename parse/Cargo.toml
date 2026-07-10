@@ -12,7 +12,9 @@ homepage = "https://github.com/mwln/puz.rs"
 documentation = "https://docs.rs/puz-parse"
 keywords = ["crossword", "parser", "puz", "puzzle", "binary-format"]
 categories = ["parser-implementations", "encoding", "games"]
+autobenches = false
 exclude = [
+    "benches/",
     "examples/data/*.puz",
     "target/",
     ".git/",
