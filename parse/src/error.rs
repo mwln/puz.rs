@@ -23,6 +23,14 @@ pub enum PuzWarning {
         expected: u16,
         found: u16,
     },
+    /// A solution cell holds a non-standard character (not a letter, digit, or
+    /// black square) with no rebus entry at that position. It could be a rebus
+    /// glyph the file failed to describe, or it could be corruption.
+    UnbackedGridChar {
+        character: char,
+        row: usize,
+        col: usize,
+    },
 }
 
 /// Result type for parsing that includes warnings.
@@ -301,6 +309,13 @@ impl fmt::Display for PuzWarning {
                 found,
             } => {
                 write!(f, "Checksum mismatch in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted.")
+            }
+            PuzWarning::UnbackedGridChar {
+                character,
+                row,
+                col,
+            } => {
+                write!(f, "Solution cell ({row}, {col}) has non-standard character {character:?} with no rebus entry at that position.")
             }
         }
     }

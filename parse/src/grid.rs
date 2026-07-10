@@ -1,10 +1,9 @@
 //! Grid geometry shared by the parser and writer.
 //!
-//! The `.puz` format doesn't store square numbers or word boundaries — they're
-//! derived from the grid layout. This module is the single source of truth for
-//! that derivation (which cells start across/down words, the block/empty square
-//! sentinels, and how many clues a grid implies), so the read and write paths
-//! can never disagree about numbering.
+//! The `.puz` format doesn't store square numbers or word boundaries; they're
+//! derived from the grid layout. Keeping that derivation here (which cells start
+//! across/down words, the block/empty square sentinels, and how many clues a
+//! grid implies) means the read and write paths can't disagree about numbering.
 
 /// Sentinel for an empty (unfilled) square in the blank grid.
 pub(crate) const FREE_SQUARE: char = '-';
@@ -94,18 +93,23 @@ pub(crate) fn count_clues(grid: &[String]) -> (usize, usize) {
     (across_count, down_count)
 }
 
-/// Returns `true` when `c` is a character allowed in puzzle string content.
-pub(crate) fn is_valid_puzzle_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || matches!(c, ' ' | '-' | '\'' | '&' | '.' | '!' | '?')
+/// Returns `true` for a "standard" solution cell character: a letter, digit,
+/// black square (`.`), or empty square (`-`). These need no rebus backing.
+///
+/// Any other character (`#`, `*`, `$`, `&`, a high byte, and so on) is treated
+/// as a rebus glyph. Those cells are valid when a rebus entry describes them;
+/// the parser warns when one isn't backed by a rebus entry.
+pub(crate) fn is_standard_cell_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == TAKEN_SQUARE || c == FREE_SQUARE
 }
 
 /// Flatten the `Clues` maps into the canonical `.puz` reading order.
 ///
 /// Walk the blank grid row-major; at each numbered cell emit its across clue
 /// (if it starts an across word) then its down clue (if it starts a down word),
-/// incrementing the number once per numbered cell. This is the single source of
-/// truth for clue order — used by the writer to serialize clues and by parser
-/// validation to reconstruct the text-checksum region.
+/// incrementing the number once per numbered cell. Both the writer (to
+/// serialize clues) and parser validation (to rebuild the text-checksum region)
+/// rely on this order.
 pub(crate) fn order_clues(
     blank_grid: &[String],
     clues: &crate::types::Clues,
@@ -313,14 +317,17 @@ mod tests {
     }
 
     #[test]
-    fn test_is_valid_puzzle_char() {
-        for c in [
-            'A', 'Z', 'a', 'z', '0', '9', ' ', '-', '\'', '&', '.', '!', '?',
-        ] {
-            assert!(is_valid_puzzle_char(c), "expected {c:?} to be valid");
+    fn test_is_standard_cell_char() {
+        // Letters, digits, and the two square sentinels are standard.
+        for c in ['A', 'Z', 'a', 'z', '0', '9', '.', '-'] {
+            assert!(is_standard_cell_char(c), "expected {c:?} to be standard");
         }
-        for c in ['\0', '\n', '\t', '@', '#', '$', '%', '^', '*', '(', ')'] {
-            assert!(!is_valid_puzzle_char(c), "expected {c:?} to be invalid");
+        // Everything else is a rebus glyph (needs backing) or non-content.
+        for c in ['#', '$', '%', '*', '&', '\'', '@', '\u{00C2}', '\0', ' '] {
+            assert!(
+                !is_standard_cell_char(c),
+                "expected {c:?} to be non-standard"
+            );
         }
     }
 

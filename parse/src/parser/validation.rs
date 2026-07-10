@@ -1,6 +1,6 @@
 use crate::{
     error::PuzError,
-    grid::{count_clues, is_valid_puzzle_char, TAKEN_SQUARE},
+    grid::{count_clues, TAKEN_SQUARE},
     types::Puzzle,
 };
 
@@ -45,12 +45,6 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
             if blank_blocked != solution_blocked {
                 return Err(PuzError::InvalidGrid {
                     reason: format!("Blocked square mismatch at ({i}, {j})"),
-                });
-            }
-
-            if !blank_blocked && !is_valid_puzzle_char(solution_char) {
-                return Err(PuzError::InvalidGrid {
-                    reason: format!("Invalid character '{solution_char}' at ({i}, {j})"),
                 });
             }
         }
@@ -228,20 +222,24 @@ mod tests {
         }
     }
 
-    /// Test grid structure validation with invalid characters
-    /// Solution grid should only contain valid puzzle characters
+    /// Grid structure validation must not reject non-standard solution cell
+    /// characters. Glyphs like `#`, `*`, `$`, or high bytes are valid rebus
+    /// cells; the rebus data itself lives in the GRBS/RTBL extensions, keyed by
+    /// position. The parser warns about unbacked glyphs during parsing, so this
+    /// check does not reject them.
     #[test]
-    fn test_validate_grid_structure_invalid_chars() {
-        let blank = vec!["---".to_string()];
-        let solution = vec!["A\x00C".to_string()]; // Null character is invalid
+    fn test_validate_grid_structure_accepts_marker_chars() {
+        let blank = vec!["----".to_string()];
+        let solution = vec!["#*/$".to_string()];
+        assert!(validate_grid_structure(&blank, &solution).is_ok());
+    }
 
-        let result = validate_grid_structure(&blank, &solution);
-        assert!(result.is_err());
-        if let Err(PuzError::InvalidGrid { reason }) = result {
-            assert!(reason.contains("Invalid character"));
-        } else {
-            panic!("Expected InvalidGrid error");
-        }
+    #[test]
+    fn test_validate_grid_structure_accepts_high_byte_char() {
+        // 0xC2 decodes to 'Â'; a marker some NYT puzzles use for rebus cells.
+        let blank = vec!["--".to_string()];
+        let solution = vec!["\u{00C2}B".to_string()];
+        assert!(validate_grid_structure(&blank, &solution).is_ok());
     }
 
     /// Test clue consistency validation
