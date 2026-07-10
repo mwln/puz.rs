@@ -199,6 +199,25 @@ mod tests {
     }
 
     #[test]
+    fn test_round_trip_diagramless() {
+        // Build a diagramless puzzle, write it (emits ':' + 0x0401), and parse
+        // it back. The parser detects ':' and normalizes it to '.', so the
+        // reparsed puzzle equals the original.
+        let p = Puzzle::new(["AB.", "CDE"])
+            .unwrap()
+            .title("Diagramless")
+            .author("Tester")
+            .diagramless(true);
+
+        let bytes = to_bytes(&p).unwrap();
+        let reparsed = parse_bytes(&bytes).unwrap();
+
+        assert!(reparsed.info.is_diagramless);
+        assert_eq!(reparsed.grid.solution[0], "AB."); // ':' normalized back to '.'
+        assert_eq!(reparsed, p);
+    }
+
+    #[test]
     fn test_round_trip_with_rebus() {
         let mut p = sample_puzzle();
         let mut table = HashMap::new();
