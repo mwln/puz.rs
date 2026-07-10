@@ -1,5 +1,5 @@
 use crate::{
-    checksums::{self, BITMASK_NORMAL},
+    checksums::{self, BITMASK_DIAGRAMLESS, BITMASK_NORMAL},
     encoding::encode_nul_terminated,
     error::PuzError,
     puzzle::Puzzle,
@@ -15,6 +15,15 @@ pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
 
     let info = &puzzle.info;
 
+    // Diagramless puzzles get the diagramless bitmask and emit black squares as
+    // ':' instead of '.'. The checksums below are computed over these emitted
+    // bytes, so the file stays internally consistent.
+    let bitmask = if info.is_diagramless {
+        BITMASK_DIAGRAMLESS
+    } else {
+        BITMASK_NORMAL
+    };
+
     // --- Body sections ---
     let mut header = header::serialize_header(
         info.width,
@@ -22,10 +31,10 @@ pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
         // num_clues is derived from the grid-ordered clue list below.
         0,
         &info.version,
-        BITMASK_NORMAL,
+        bitmask,
     );
 
-    let grid_bytes = grids::serialize_grids(&puzzle.grid);
+    let grid_bytes = grids::serialize_grids(&puzzle.grid, info.is_diagramless);
     let solution_bytes = grid_bytes[..grid_bytes.len() / 2].to_vec();
     let fill_bytes = grid_bytes[grid_bytes.len() / 2..].to_vec();
 
@@ -51,7 +60,7 @@ pub(crate) fn write_puzzle(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
     // Task 9 rejects scrambled input).
     let components = checksums::compute(
         info,
-        BITMASK_NORMAL,
+        bitmask,
         0x0000,
         &solution_bytes,
         &fill_bytes,
