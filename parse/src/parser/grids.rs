@@ -38,13 +38,7 @@ pub(crate) fn parse_grids<R: Read>(
     // '.', is unchanged.
     let is_diagramless = solution_bytes.contains(&b':') || blank_bytes.contains(&b':');
 
-    let normalize = |b: u8| -> char {
-        if b == b':' {
-            '.'
-        } else {
-            b as char
-        }
-    };
+    let normalize = |b: u8| -> char { if b == b':' { '.' } else { b as char } };
     let solution_chars: String = solution_bytes.iter().map(|&b| normalize(b)).collect();
     let blank_chars: String = blank_bytes.iter().map(|&b| normalize(b)).collect();
 

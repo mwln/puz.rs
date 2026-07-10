@@ -138,14 +138,20 @@ impl fmt::Display for PuzError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PuzError::InvalidMagic { found } => {
-                write!(f, "Invalid .puz file magic header. Expected 'ACROSS&DOWN\\0', found: {found:?}. This file may be corrupted or not a .puz file.")
+                write!(
+                    f,
+                    "Invalid .puz file magic header. Expected 'ACROSS&DOWN\\0', found: {found:?}. This file may be corrupted or not a .puz file."
+                )
             }
             PuzError::InvalidChecksum {
                 expected,
                 found,
                 context,
             } => {
-                write!(f, "Checksum validation failed in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted.")
+                write!(
+                    f,
+                    "Checksum validation failed in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted."
+                )
             }
             PuzError::InvalidDimensions { width, height } => {
                 write!(
@@ -164,7 +170,10 @@ impl fmt::Display for PuzError {
                 expected,
                 found,
             } => {
-                write!(f, "Extension section '{section}' size mismatch: expected {expected} bytes, found {found}. The section may be corrupted.")
+                write!(
+                    f,
+                    "Extension section '{section}' size mismatch: expected {expected} bytes, found {found}. The section may be corrupted."
+                )
             }
             PuzError::ParseError {
                 message,
@@ -301,14 +310,20 @@ impl fmt::Display for PuzWarning {
                 write!(f, "Data recovery for '{field}': {issue}")
             }
             PuzWarning::ScrambledPuzzle { version } => {
-                write!(f, "Puzzle is scrambled (version {version}). Solution may not be readable without descrambling.")
+                write!(
+                    f,
+                    "Puzzle is scrambled (version {version}). Solution may not be readable without descrambling."
+                )
             }
             PuzWarning::ChecksumMismatch {
                 context,
                 expected,
                 found,
             } => {
-                write!(f, "Checksum mismatch in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted.")
+                write!(
+                    f,
+                    "Checksum mismatch in {context}: expected 0x{expected:04X}, found 0x{found:04X}. The file may be corrupted."
+                )
             }
             PuzWarning::UnbackedGridChar {
                 character,

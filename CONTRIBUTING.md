@@ -93,11 +93,12 @@ cargo test test_name
 
 - Make sure `just check` passes.
 - Keep commits focused; a PR that does one thing is easier to review.
-- The minimum supported Rust version is **1.78.0**. CI tests against it, so
-  avoid standard-library APIs newer than that.
+- The minimum supported Rust version is **1.85.0** for the `puz-parse`
+  library and **1.88.0** for the `puz` CLI (its `comfy-table` dependency needs
+  it). CI tests against both, so keep library code within the 1.85 floor.
 - If you add or change behavior, add a test for it.
 
-CI runs the same checks as `just check` across stable, beta, and the 1.78.0
+CI runs the same checks as `just check` across stable, beta, and the 1.88.0
 MSRV, plus a docs build and cross-compilation checks.
 
 ## Releases

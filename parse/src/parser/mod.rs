@@ -18,8 +18,8 @@ use extensions::parse_extensions_with_recovery;
 use grids::parse_grids;
 use header::parse_header;
 use io::{read_remaining_data, validate_file_magic};
-use strings::parse_strings;
 pub(crate) use strings::RawStrings;
+use strings::parse_strings;
 use validation::validate_puzzle;
 
 pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {

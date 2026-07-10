@@ -3,7 +3,7 @@
 # `cargo clippy`, `cargo fmt`, and build results consistent between developer
 # machines and CI (both resolve to the current stable at any point in time).
 #
-# The CI test matrix installs stable / beta / 1.78.0 (MSRV) explicitly via
+# The CI test matrix installs stable / beta / 1.88.0 (MSRV) explicitly via
 # `dtolnay/rust-toolchain`, whose explicit `toolchain:` input overrides this
 # file, so multi-version testing is preserved.
 [toolchain]

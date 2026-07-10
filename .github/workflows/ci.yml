@@ -34,7 +34,7 @@ jobs:
         rust: [stable, beta]
         include:
           - os: ubuntu-latest
-            rust: "1.78.0"
+            rust: "1.88.0"
     steps:
       - uses: actions/checkout@v7
       - name: install rust
@@ -47,7 +47,7 @@ jobs:
           shared-key: "ci-cache"
       # Use `+${{ matrix.rust }}` on every cargo call so the matrix toolchain
       # is honored instead of the version pinned in rust-toolchain.toml. This
-      # is what keeps the 1.78.0 (MSRV) leg of the matrix meaningful.
+      # is what keeps the 1.88.0 (MSRV) leg of the matrix meaningful.
       - name: check compilation
         run: cargo +${{ matrix.rust }} check --all --all-targets
       - name: run tests
@@ -58,6 +58,28 @@ jobs:
           cargo +${{ matrix.rust }} test -p puz-parse --features json
       - name: test cli functionality
         run: cargo +${{ matrix.rust }} run --bin puz -- --help
+  library-msrv:
+    name: library MSRV (1.85.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: install rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85.0"
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci-cache"
+      # The puz-parse library holds a lower MSRV than the workspace (the CLI's
+      # comfy-table dependency drives the 1.88 workspace floor). Verify the
+      # library alone still builds and tests on its own 1.85 floor.
+      - name: check + test library at its MSRV
+        run: |
+          cargo +1.85.0 check -p puz-parse --all-features
+          cargo +1.85.0 test -p puz-parse --no-default-features
+          cargo +1.85.0 test -p puz-parse --features json
   lint:
     name: lint
     runs-on: ubuntu-latest

@@ -1,14 +1,14 @@
 [workspace]
 members = ["parse", "cli"]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 version = "0.1.3"
 authors = ["mwln"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwln/puz.rs"
-rust-version = "1.78.0"
+rust-version = "1.88.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
