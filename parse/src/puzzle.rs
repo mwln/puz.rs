@@ -100,7 +100,13 @@ impl Puzzle {
             .iter()
             .map(|row| {
                 row.chars()
-                    .map(|c| if c == TAKEN_SQUARE { TAKEN_SQUARE } else { FREE_SQUARE })
+                    .map(|c| {
+                        if c == TAKEN_SQUARE {
+                            TAKEN_SQUARE
+                        } else {
+                            FREE_SQUARE
+                        }
+                    })
                     .collect()
             })
             .collect();
@@ -234,8 +240,14 @@ mod tests {
     #[test]
     fn test_new_generates_blank_grid_matching_black_squares() {
         let puzzle = Puzzle::new(["AB.", "CDE"]).unwrap();
-        assert_eq!(puzzle.grid.blank, vec!["--.".to_string(), "---".to_string()]);
-        assert_eq!(puzzle.grid.solution, vec!["AB.".to_string(), "CDE".to_string()]);
+        assert_eq!(
+            puzzle.grid.blank,
+            vec!["--.".to_string(), "---".to_string()]
+        );
+        assert_eq!(
+            puzzle.grid.solution,
+            vec!["AB.".to_string(), "CDE".to_string()]
+        );
     }
 
     #[test]

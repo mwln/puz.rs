@@ -226,8 +226,25 @@ pub(crate) fn verify(
     // in U+0000..U+00FF. Recover the original byte with `c as u8` (the exact
     // inverse). Using `str::bytes()` here would UTF-8 re-encode a high-byte cell
     // (e.g. U+00C2 -> 0xC3 0x82) and checksum the wrong bytes.
-    let solution_bytes: Vec<u8> = grid_bytes(&grid.solution);
-    let fill_bytes: Vec<u8> = grid_bytes(&grid.blank);
+    //
+    // Diagramless grids store black squares on disk as ':' (0x3A) but the parser
+    // normalized them to '.' (0x2E). The stored checksums are over the original
+    // ':' bytes, so map '.' back to ':' here to checksum the bytes as they were
+    // read.
+    let recover = |rows: &[String]| -> Vec<u8> {
+        grid_bytes(rows)
+            .into_iter()
+            .map(|b| {
+                if info.is_diagramless && b == b'.' {
+                    b':'
+                } else {
+                    b
+                }
+            })
+            .collect()
+    };
+    let solution_bytes: Vec<u8> = recover(&grid.solution);
+    let fill_bytes: Vec<u8> = recover(&grid.blank);
 
     // Use the raw string bytes captured during parsing so the text checksum is
     // byte-faithful: decoding then re-encoding is not always a round-trip (e.g.
