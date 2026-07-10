@@ -145,7 +145,78 @@ pub fn read_grids(data: &[u8]) -> Option<RawGrids> {
     })
 }
 
+/// A numbered cell: a grid position that starts an across and/or down word.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NumberedCell {
+    /// The clue number assigned to this cell.
+    pub number: u16,
+    /// Zero-based row.
+    pub row: usize,
+    /// Zero-based column.
+    pub col: usize,
+    /// Whether this cell starts an across word.
+    pub across: bool,
+    /// Whether this cell starts a down word.
+    pub down: bool,
+}
+
 impl RawGrids {
+    /// Whether a cell is playable: a letter/digit or the open-cell byte `-`.
+    /// A `.` (black square) or anything else is not playable.
+    fn is_playable(&self, row: usize, col: usize) -> bool {
+        matches!(
+            self.solution.get(row).and_then(|r| r.get(col)),
+            Some(&b) if b == b'-' || b.is_ascii_alphanumeric()
+        )
+    }
+
+    fn is_black(&self, row: usize, col: usize) -> bool {
+        self.solution.get(row).and_then(|r| r.get(col)) == Some(&b'.')
+    }
+
+    /// Compute clue numbering by walking the solution grid in reading order,
+    /// using the standard rule: a cell starts an across word when it and the
+    /// cell to its right are playable and it is at the left edge or preceded by
+    /// a black square (and symmetrically for down words). Each numbered cell
+    /// increments the running number once.
+    ///
+    /// This is the same rule the parser uses to assign clue numbers, exposed
+    /// here on raw bytes so tools can show it for files that fail to parse.
+    pub fn clue_numbers(&self) -> Vec<NumberedCell> {
+        let mut out = Vec::new();
+        let mut number = 0u16;
+        for row in 0..self.height {
+            for col in 0..self.width {
+                if !self.is_playable(row, col) {
+                    continue;
+                }
+                let starts_across =
+                    (col == 0 || self.is_black(row, col - 1)) && self.is_playable(row, col + 1);
+                let starts_down =
+                    (row == 0 || self.is_black(row - 1, col)) && self.is_playable(row + 1, col);
+                if starts_across || starts_down {
+                    number += 1;
+                    out.push(NumberedCell {
+                        number,
+                        row,
+                        col,
+                        across: starts_across,
+                        down: starts_down,
+                    });
+                }
+            }
+        }
+        out
+    }
+
+    /// The number of across and down clue slots the grid implies.
+    pub fn clue_counts(&self) -> (usize, usize) {
+        let numbers = self.clue_numbers();
+        let across = numbers.iter().filter(|n| n.across).count();
+        let down = numbers.iter().filter(|n| n.down).count();
+        (across, down)
+    }
+
     /// Cells where exactly one grid marks a black square (`.`).
     ///
     /// A well-formed puzzle has none; mismatches indicate a non-standard grid
@@ -329,6 +400,57 @@ mod tests {
                 blank: b'-',
             }
         );
+    }
+
+    #[test]
+    fn test_clue_numbers_simple_open_grid() {
+        // 2x2 open grid: (0,0) starts A+D #1, (0,1) starts D #2, (1,0) starts A #3.
+        let data = build(2, 2, b"ABCD", b"----", &["a"], 0x0001);
+        let g = read_grids(&data).unwrap();
+        let nums = g.clue_numbers();
+        assert_eq!(nums.len(), 3);
+        assert_eq!(
+            nums[0],
+            NumberedCell {
+                number: 1,
+                row: 0,
+                col: 0,
+                across: true,
+                down: true
+            }
+        );
+        assert_eq!(
+            nums[1],
+            NumberedCell {
+                number: 2,
+                row: 0,
+                col: 1,
+                across: false,
+                down: true
+            }
+        );
+        assert_eq!(
+            nums[2],
+            NumberedCell {
+                number: 3,
+                row: 1,
+                col: 0,
+                across: true,
+                down: false
+            }
+        );
+        assert_eq!(g.clue_counts(), (2, 2));
+    }
+
+    #[test]
+    fn test_clue_numbers_ignores_length_one_slots() {
+        // (0,1) is a lone playable cell between blacks: no across, no down word.
+        // Row 0: A . B  Row 1: . . .  (only (0,0) and (0,2) are isolated too)
+        let data = build(3, 1, b"A.B", b"-.-", &["a"], 0x0001);
+        let g = read_grids(&data).unwrap();
+        // No cell has a right/down neighbor playable, so no numbered cells.
+        assert!(g.clue_numbers().is_empty());
+        assert_eq!(g.clue_counts(), (0, 0));
     }
 
     #[test]

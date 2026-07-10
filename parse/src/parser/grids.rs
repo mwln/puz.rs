@@ -32,13 +32,24 @@ pub(crate) fn parse_grids<R: Read>(
     let blank_bytes = read_bytes(reader, board_size)?;
 
     // Diagramless puzzles store black squares as ':' (0x3A) instead of '.'.
-    // Detect by content: ':' appears only in diagramless grids (verified across
-    // the corpus), and it is the authoritative signal (the header bitmask is
-    // sometimes wrong). Normalize ':' to '.' so downstream code, which keys on
-    // '.', is unchanged.
-    let is_diagramless = solution_bytes.contains(&b':') || blank_bytes.contains(&b':');
+    // Detect by the BLANK grid: diagramless black squares appear as ':' in the
+    // blank grid, which is what the solver sees. A ':' in the solution grid
+    // only is theme/rebus content (e.g. an emoticon like ':-)'), NOT a
+    // diagramless marker, so keying on the blank grid avoids that false
+    // positive. The header bitmask is unreliable, so it is not used.
+    //
+    // When diagramless, normalize ':' to '.' so downstream code (which keys on
+    // '.') is unchanged. When NOT diagramless, leave every byte as-is so a
+    // solution ':' stays a ':' rather than becoming a spurious black square.
+    let is_diagramless = blank_bytes.contains(&b':');
 
-    let normalize = |b: u8| -> char { if b == b':' { '.' } else { b as char } };
+    let normalize = |b: u8| -> char {
+        if is_diagramless && b == b':' {
+            '.'
+        } else {
+            b as char
+        }
+    };
     let solution_chars: String = solution_bytes.iter().map(|&b| normalize(b)).collect();
     let blank_chars: String = blank_bytes.iter().map(|&b| normalize(b)).collect();
 
@@ -92,10 +103,16 @@ fn validate_grid_consistency(
         }
 
         for (j, (sol_char, blank_char)) in sol_row.chars().zip(blank_row.chars()).enumerate() {
-            if (sol_char == TAKEN_SQUARE) != (blank_char == TAKEN_SQUARE) {
+            // The blank grid is authoritative for black squares: it is what the
+            // solver sees. Only error when the blank grid marks a cell black but
+            // the solution does not have a black square there — a genuine
+            // inconsistency. The reverse (a '.' in the solution where the blank
+            // is open) is allowed: it is theme/rebus content, such as a literal
+            // period placed in an answer (e.g. NYT punctuation-rebus puzzles).
+            if blank_char == TAKEN_SQUARE && sol_char != TAKEN_SQUARE {
                 return Err(PuzError::InvalidGrid {
                     reason: format!(
-                        "Grid consistency error at ({i}, {j}): blocked squares don't match"
+                        "Grid consistency error at ({i}, {j}): blank grid marks a black square but the solution does not"
                     ),
                 });
             }
@@ -197,6 +214,61 @@ mod tests {
 
         assert!(!is_diagramless);
         assert_eq!(grid.solution, vec!["AB".to_string(), ".D".to_string()]);
+    }
+
+    /// A ':' only in the SOLUTION (not the blank grid) is theme/rebus content,
+    /// not a diagramless marker. Diagramless black squares appear as ':' in the
+    /// blank grid (what the solver sees). Detection must key on the blank grid,
+    /// and a solution-only ':' must be preserved, not normalized to '.'.
+    ///
+    /// Real case: NYT 2019-04-25 emoticon puzzle with ':-)' in the grid.
+    #[test]
+    fn test_parse_grids_solution_only_colon_is_not_diagramless() {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"A:BC"); // solution has ':' at (0,1) as theme content
+        data.extend_from_slice(b"----"); // blank grid: no ':' -> not diagramless
+        let mut reader = BufReader::new(Cursor::new(data));
+        let (grid, is_diagramless) = parse_grids(&mut reader, 2, 2).unwrap();
+
+        assert!(!is_diagramless, "solution-only ':' must not be diagramless");
+        // The ':' is preserved (a rebus/theme glyph), NOT turned into '.'.
+        assert_eq!(grid.solution, vec!["A:".to_string(), "BC".to_string()]);
+        assert_eq!(grid.blank, vec!["--".to_string(), "--".to_string()]);
+    }
+
+    /// A '.' in a SOLUTION cell that the blank grid marks playable ('-') is
+    /// theme/rebus content (a literal period placed in an answer), not a black
+    /// square. The blank grid is authoritative for black squares, so this must
+    /// parse rather than error on "blocked squares don't match".
+    ///
+    /// Real case: NYT 2007-01-04 punctuation-rebus puzzle with a '.' answer
+    /// cell (e.g. "A.ICALLY").
+    #[test]
+    fn test_parse_grids_solution_period_in_open_cell_is_allowed() {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"A.CD"); // solution '.' at (0,1)
+        data.extend_from_slice(b"----"); // blank marks (0,1) playable
+        let mut reader = BufReader::new(Cursor::new(data));
+        let (grid, is_diagramless) = parse_grids(&mut reader, 2, 2).unwrap();
+
+        assert!(!is_diagramless);
+        assert_eq!(grid.solution, vec!["A.".to_string(), "CD".to_string()]);
+        assert_eq!(grid.blank, vec!["--".to_string(), "--".to_string()]);
+    }
+
+    /// The genuinely inconsistent case still errors: the blank grid marks a
+    /// cell black ('.') but the solution has a letter there.
+    #[test]
+    fn test_parse_grids_blank_black_but_solution_letter_errors() {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"ABCD"); // solution: all letters
+        data.extend_from_slice(b"-.--"); // blank marks (0,1) black
+        let mut reader = BufReader::new(Cursor::new(data));
+        let result = parse_grids(&mut reader, 2, 2);
+        assert!(
+            result.is_err(),
+            "blank black + solution letter is inconsistent"
+        );
     }
 
     /// Test parsing grids with all black squares
@@ -316,28 +388,30 @@ mod tests {
 
     /// Test grid parsing with consistency validation failure
     /// Blank and solution grids must have matching blocked squares
+    /// A '.' in the solution where the blank grid is open is NOT an error: the
+    /// blank grid is authoritative for black squares, and a solution '.' in an
+    /// open cell is theme/rebus content. (This case previously errored; the
+    /// genuine-inconsistency case is covered by
+    /// `test_parse_grids_blank_black_but_solution_letter_errors`.)
     #[test]
-    fn test_parse_grids_consistency_failure() {
+    fn test_parse_grids_solution_period_where_blank_open_is_ok() {
         let width = 2u8;
         let height = 2u8;
 
-        // Solution has black square at (0,1), blank doesn't
+        // Solution has '.' at (0,1); blank marks that cell open ('-').
         let solution_data = b"A.BC";
-        let blank_data = b"--B-"; // Inconsistent: should be "-.B-"
+        let blank_data = b"--B-";
 
         let mut data = Vec::new();
         data.extend_from_slice(solution_data);
         data.extend_from_slice(blank_data);
 
         let mut reader = BufReader::new(Cursor::new(data));
-        let result = parse_grids(&mut reader, width, height);
+        let (grid, is_diagramless) = parse_grids(&mut reader, width, height).unwrap();
 
-        assert!(result.is_err());
-        if let Err(PuzError::InvalidGrid { reason }) = result {
-            assert!(reason.contains("consistency error"));
-        } else {
-            panic!("Expected InvalidGrid error with consistency message");
-        }
+        assert!(!is_diagramless);
+        assert_eq!(grid.solution, vec!["A.".to_string(), "BC".to_string()]);
+        assert_eq!(grid.blank, vec!["--".to_string(), "B-".to_string()]);
     }
 
     /// Test string_to_grid function with various inputs

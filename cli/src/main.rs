@@ -1,12 +1,12 @@
 //! `puz`: parse and inspect `.puz` crossword puzzle files.
 
-mod dump;
-mod inspect;
-mod parse_json;
-mod validate;
+mod commands;
+mod render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+
+use commands::{dump, inspect, parse_json, validate};
 
 #[derive(Parser)]
 #[command(
