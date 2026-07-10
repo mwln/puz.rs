@@ -153,7 +153,7 @@ fn validate(puzzle: &Puzzle) -> Result<(), PuzError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{error::PuzError, parse_bytes, puzzle::Puzzle, to_bytes, types::*};
+    use crate::{error::PuzError, puzzle::Puzzle, to_bytes, types::*};
     use std::collections::HashMap;
 
     fn sample_puzzle() -> Puzzle {
@@ -189,7 +189,7 @@ mod tests {
     fn test_round_trip_basic() {
         let p = sample_puzzle();
         let bytes = to_bytes(&p).unwrap();
-        let reparsed = parse_bytes(&bytes).unwrap();
+        let reparsed = Puzzle::from_bytes(&bytes).unwrap();
         assert_eq!(reparsed, p);
     }
 
@@ -210,7 +210,7 @@ mod tests {
         // verifier must checksum the same bytes, so strict validation passes.
         crate::validate_bytes(&bytes).expect("diagramless file must pass strict validation");
 
-        let reparsed = parse_bytes(&bytes).unwrap();
+        let reparsed = Puzzle::from_bytes(&bytes).unwrap();
         assert!(reparsed.info.is_diagramless);
         assert_eq!(reparsed.grid.solution[0], "AB."); // ':' normalized back to '.'
         assert_eq!(reparsed, p);
@@ -227,7 +227,7 @@ mod tests {
         p.clues.down.set(2, "Second down");
 
         let bytes = to_bytes(&p).unwrap();
-        let reparsed = parse_bytes(&bytes).unwrap();
+        let reparsed = Puzzle::from_bytes(&bytes).unwrap();
 
         assert_eq!(reparsed.clues.across.get(1), Some("First across"));
         assert_eq!(reparsed.clues.across.get(3), Some("Third across"));
@@ -247,7 +247,7 @@ mod tests {
             table,
         });
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -255,7 +255,7 @@ mod tests {
         let mut p = sample_puzzle();
         p.extensions.circles = Some(vec![vec![true, false], vec![false, true]]);
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod tests {
         let mut p = sample_puzzle();
         p.extensions.given = Some(vec![vec![false, true], vec![true, false]]);
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -272,7 +272,7 @@ mod tests {
         p.extensions.circles = Some(vec![vec![true, false], vec![false, false]]);
         p.extensions.given = Some(vec![vec![false, false], vec![false, true]]);
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -280,7 +280,7 @@ mod tests {
         let mut p = sample_puzzle();
         p.info.notes = "a note".into();
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -291,7 +291,7 @@ mod tests {
         p.info.author = "caf\u{e9}".into();
         p.info.title = "it\u{2019}s".into();
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -302,7 +302,7 @@ mod tests {
         p.info.copyright = String::new();
         p.info.notes = String::new();
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     #[test]
@@ -353,7 +353,7 @@ mod tests {
             },
         };
         let bytes = to_bytes(&p).unwrap();
-        assert_eq!(parse_bytes(&bytes).unwrap(), p);
+        assert_eq!(Puzzle::from_bytes(&bytes).unwrap(), p);
     }
 
     // --- test helpers for building a fully-clued larger grid ---

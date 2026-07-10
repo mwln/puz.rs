@@ -8,31 +8,30 @@
 //! # Quick Start
 //!
 //! ```rust,no_run
-//! use puz_parse::parse_file;
+//! use puz_parse::Puzzle;
 //!
-//! let puzzle = parse_file("puzzle.puz")?;
+//! let puzzle = Puzzle::from_file("puzzle.puz")?;
 //! println!("Title: {}", puzzle.info.title);
 //! println!("Size: {}x{}", puzzle.info.width, puzzle.info.height);
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
 //! # Advanced Usage
 //!
-//! For more control over parsing and error handling:
+//! For more control over parsing, configure a [`Puzzle::reader`]. The
+//! `*_verbose` terminals also return any warnings collected during parsing:
 //!
 //! ```rust,no_run
-//! use std::fs::File;
-//! use puz_parse::parse;
+//! use puz_parse::Puzzle;
 //!
-//! let file = File::open("puzzle.puz")?;
-//! let result = parse(file)?;
-//! let puzzle = result.result;
+//! let parsed = Puzzle::reader().from_file_verbose("puzzle.puz")?;
+//! let puzzle = &parsed.result;
+//! println!("Title: {}", puzzle.info.title);
 //!
-//! // Handle any warnings that occurred during parsing
-//! for warning in &result.warnings {
+//! for warning in &parsed.warnings {
 //!     eprintln!("Warning: {}", warning);
 //! }
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
 //! # Writing
@@ -42,22 +41,22 @@
 //! crossword software:
 //!
 //! ```rust,no_run
-//! use puz_parse::{parse_file, to_bytes, write_file};
+//! use puz_parse::{Puzzle, to_bytes, write_file};
 //!
-//! let puzzle = parse_file("puzzle.puz")?;
+//! let puzzle = Puzzle::from_file("puzzle.puz")?;
 //! // in-memory bytes:
 //! let bytes = to_bytes(&puzzle)?;
 //! // or straight to a file:
 //! write_file(&puzzle, "copy.puz")?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
 //! # Validation
 //!
-//! [`parse`] records checksum mismatches as [`PuzWarning::ChecksumMismatch`]
-//! and continues (many real-world files have incorrect checksums). Use
-//! [`parse_strict`] or [`validate_bytes`] to treat a checksum mismatch as an
-//! error instead.
+//! [`Puzzle::from_file`] and friends record checksum mismatches as
+//! [`PuzWarning::ChecksumMismatch`] and continue (many real-world files have
+//! incorrect checksums). Use `Puzzle::reader().strict(true)` or
+//! [`validate_bytes`] to treat a checksum mismatch as an error instead.
 //!
 //! # Building
 //!
@@ -111,7 +110,7 @@ mod types;
 mod writer;
 
 pub use error::{ParseResult, PuzError, PuzWarning};
-pub use puzzle::Puzzle;
+pub use puzzle::{Puzzle, PuzzleReader};
 pub use types::*;
 
 use std::io::Read;
@@ -120,7 +119,7 @@ use std::path::Path;
 /// Parse a .puz file from any source that implements `Read`.
 ///
 /// This is the core parsing function that provides full control over error handling
-/// and warnings. Use [`parse_file`] for a simpler API when parsing from files.
+/// and warnings. Use [`Puzzle::from_file`] for a simpler API when parsing from files.
 ///
 /// # Arguments
 ///
@@ -197,12 +196,13 @@ pub fn validate_bytes(data: &[u8]) -> Result<(), PuzError> {
 /// # Example
 ///
 /// ```rust,no_run
-/// use puz_parse::parse_file;
+/// use puz_parse::Puzzle;
 ///
-/// let puzzle = parse_file("puzzle.puz")?;
+/// let puzzle = Puzzle::from_file("puzzle.puz")?;
 /// println!("Puzzle: {} by {}", puzzle.info.title, puzzle.info.author);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+#[deprecated(since = "0.2.0", note = "use `Puzzle::from_file` instead")]
 pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
     let file = std::fs::File::open(path.as_ref()).map_err(|e| PuzError::IoError {
         message: format!("Failed to open file: {e}"),
@@ -229,12 +229,13 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
 /// # Example
 ///
 /// ```rust,no_run
-/// use puz_parse::parse_bytes;
+/// use puz_parse::Puzzle;
 ///
 /// let data = std::fs::read("puzzle.puz")?;
-/// let puzzle = parse_bytes(&data)?;
+/// let puzzle = Puzzle::from_bytes(&data)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+#[deprecated(since = "0.2.0", note = "use `Puzzle::from_bytes` instead")]
 pub fn parse_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
     let result = parse(data)?;
     Ok(result.result)
@@ -248,11 +249,11 @@ pub fn parse_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
 /// # Example
 ///
 /// ```rust,no_run
-/// use puz_parse::{parse_file, to_bytes};
+/// use puz_parse::{Puzzle, to_bytes};
 ///
-/// let puzzle = parse_file("puzzle.puz")?;
+/// let puzzle = Puzzle::from_file("puzzle.puz")?;
 /// let bytes = to_bytes(&puzzle)?;
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
 pub fn to_bytes(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
     writer::write_puzzle(puzzle)
@@ -273,11 +274,11 @@ pub fn write<W: std::io::Write>(puzzle: &Puzzle, mut writer: W) -> Result<(), Pu
 /// # Example
 ///
 /// ```rust,no_run
-/// use puz_parse::{parse_file, write_file};
+/// use puz_parse::{Puzzle, write_file};
 ///
-/// let puzzle = parse_file("puzzle.puz")?;
+/// let puzzle = Puzzle::from_file("puzzle.puz")?;
 /// write_file(&puzzle, "copy.puz")?;
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
 pub fn write_file<P: AsRef<Path>>(puzzle: &Puzzle, path: P) -> Result<(), PuzError> {
     let file = std::fs::File::create(path.as_ref()).map_err(|e| PuzError::IoError {

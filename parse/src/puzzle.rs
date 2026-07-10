@@ -1,3 +1,7 @@
+use std::io::Read;
+use std::path::Path;
+
+use crate::error::{ParseResult, PuzError};
 use crate::grid::{cell_needs_across_clue, cell_needs_down_clue, FREE_SQUARE, TAKEN_SQUARE};
 use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
 
@@ -10,13 +14,13 @@ use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
 /// # Parsing
 ///
 /// ```rust,no_run
-/// use puz_parse::parse_file;
+/// use puz_parse::Puzzle;
 ///
-/// let puzzle = parse_file("puzzle.puz")?;
+/// let puzzle = Puzzle::from_file("puzzle.puz")?;
 /// println!("Title: {}", puzzle.info.title);
 /// println!("Grid size: {}x{}", puzzle.info.width, puzzle.info.height);
 /// println!("Number of across clues: {}", puzzle.clues.across.len());
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
 ///
 /// # Building
@@ -92,6 +96,67 @@ impl Puzzle {
                 given: None,
             },
         }
+    }
+
+    /// Parse a puzzle from a `.puz` file path.
+    ///
+    /// Checksum mismatches and other recoverable issues are ignored; use
+    /// [`Puzzle::reader`] to configure strict parsing or to collect warnings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use puz_parse::Puzzle;
+    ///
+    /// let puzzle = Puzzle::from_file("puzzle.puz")?;
+    /// println!("{} by {}", puzzle.info.title, puzzle.info.author);
+    /// # Ok::<(), puz_parse::PuzError>(())
+    /// ```
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
+        PuzzleReader::new().from_file(path)
+    }
+
+    /// Parse a puzzle from `.puz` bytes already in memory.
+    ///
+    /// Checksum mismatches and other recoverable issues are ignored; use
+    /// [`Puzzle::reader`] to configure strict parsing or to collect warnings.
+    pub fn from_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
+        PuzzleReader::new().from_bytes(data)
+    }
+
+    /// Parse a puzzle from any [`Read`] source.
+    ///
+    /// Checksum mismatches and other recoverable issues are ignored; use
+    /// [`Puzzle::reader`] to configure strict parsing or to collect warnings.
+    pub fn from_reader<R: Read>(reader: R) -> Result<Puzzle, PuzError> {
+        PuzzleReader::new().from_reader(reader)
+    }
+
+    /// Begin a configurable parse.
+    ///
+    /// Set options such as [`PuzzleReader::strict`], then call a terminal
+    /// method ([`PuzzleReader::from_file`], [`PuzzleReader::from_bytes`],
+    /// [`PuzzleReader::from_reader`], or their `*_verbose` variants that also
+    /// return parse warnings).
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use puz_parse::Puzzle;
+    ///
+    /// // Reject any checksum mismatch.
+    /// let puzzle = Puzzle::reader().strict(true).from_file("puzzle.puz")?;
+    ///
+    /// // Keep the parse warnings.
+    /// let parsed = Puzzle::reader().from_file_verbose("puzzle.puz")?;
+    /// for warning in &parsed.warnings {
+    ///     eprintln!("{warning}");
+    /// }
+    /// # Ok::<(), puz_parse::PuzError>(())
+    /// ```
+    #[must_use]
+    pub fn reader() -> PuzzleReader {
+        PuzzleReader::new()
     }
 
     /// Set the puzzle grid from solution rows.
@@ -210,6 +275,83 @@ impl Default for Puzzle {
     }
 }
 
+/// A configurable `.puz` parser.
+///
+/// Created with [`Puzzle::reader`]. Set options with the chained setters, then
+/// call a terminal method to parse from a file, bytes, or a reader. The
+/// `from_*` terminals return just the [`Puzzle`] (discarding warnings); the
+/// `from_*_verbose` terminals return a [`ParseResult`] that also carries the
+/// parse warnings.
+#[derive(Debug, Clone, Default)]
+pub struct PuzzleReader {
+    strict: bool,
+}
+
+impl PuzzleReader {
+    fn new() -> Self {
+        Self { strict: false }
+    }
+
+    /// Require all stored checksums to match.
+    ///
+    /// When `true`, a checksum mismatch is returned as
+    /// [`PuzError::InvalidChecksum`] instead of being recorded as a warning.
+    #[must_use]
+    pub fn strict(mut self, strict: bool) -> Self {
+        self.strict = strict;
+        self
+    }
+
+    fn parse<R: Read>(&self, reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
+        if self.strict {
+            crate::parser::parse_puzzle_strict(reader)
+        } else {
+            crate::parser::parse_puzzle(reader)
+        }
+    }
+
+    fn open(path: &Path) -> Result<std::fs::File, PuzError> {
+        std::fs::File::open(path).map_err(|e| PuzError::IoError {
+            message: format!("Failed to open file: {e}"),
+            kind: e.kind(),
+            position: None,
+        })
+    }
+
+    /// Parse from a file path, returning the puzzle and its warnings.
+    pub fn from_file_verbose<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<ParseResult<Puzzle>, PuzError> {
+        self.parse(Self::open(path.as_ref())?)
+    }
+
+    /// Parse from bytes, returning the puzzle and its warnings.
+    pub fn from_bytes_verbose(&self, data: &[u8]) -> Result<ParseResult<Puzzle>, PuzError> {
+        self.parse(data)
+    }
+
+    /// Parse from any [`Read`] source, returning the puzzle and its warnings.
+    pub fn from_reader_verbose<R: Read>(&self, reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
+        self.parse(reader)
+    }
+
+    /// Parse from a file path, discarding warnings.
+    pub fn from_file<P: AsRef<Path>>(&self, path: P) -> Result<Puzzle, PuzError> {
+        self.from_file_verbose(path).map(|r| r.result)
+    }
+
+    /// Parse from bytes, discarding warnings.
+    pub fn from_bytes(&self, data: &[u8]) -> Result<Puzzle, PuzError> {
+        self.from_bytes_verbose(data).map(|r| r.result)
+    }
+
+    /// Parse from any [`Read`] source, discarding warnings.
+    pub fn from_reader<R: Read>(&self, reader: R) -> Result<Puzzle, PuzError> {
+        self.from_reader_verbose(reader).map(|r| r.result)
+    }
+}
+
 /// Generate one placeholder clue per across/down slot, numbered in reading order.
 ///
 /// Mirrors the numbering in [`crate::grid::order_clues`] so generated clues line
@@ -305,5 +447,43 @@ mod tests {
         assert_eq!(puzzle.info.notes, "N");
         assert_eq!(puzzle.info.version, "1.4");
         assert_eq!(puzzle.info.width, 2);
+    }
+
+    #[test]
+    fn test_from_bytes_round_trip() {
+        let p = Puzzle::new().title("T").author("A").grid(["AB", "CD"]);
+        let bytes = crate::to_bytes(&p).unwrap();
+        let parsed = Puzzle::from_bytes(&bytes).unwrap();
+        assert_eq!(parsed, p);
+    }
+
+    #[test]
+    fn test_reader_verbose_returns_warnings() {
+        // A well-formed puzzle our writer produced has valid checksums, so the
+        // verbose parse yields no warnings.
+        let p = Puzzle::new().title("T").author("A").grid(["AB", "CD"]);
+        let bytes = crate::to_bytes(&p).unwrap();
+        let parsed = Puzzle::reader().from_bytes_verbose(&bytes).unwrap();
+        assert_eq!(parsed.result, p);
+        assert!(parsed.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_reader_strict_rejects_bad_checksum() {
+        let p = Puzzle::new().title("T").author("A").grid(["AB", "CD"]);
+        let mut bytes = crate::to_bytes(&p).unwrap();
+        // Corrupt the global checksum at offset 0x00.
+        bytes[0] ^= 0xFF;
+
+        // Lenient parse records a warning but succeeds.
+        let lenient = Puzzle::reader().from_bytes_verbose(&bytes).unwrap();
+        assert!(!lenient.warnings.is_empty());
+
+        // Strict parse rejects it.
+        let err = Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
+            .unwrap_err();
+        assert!(matches!(err, PuzError::InvalidChecksum { .. }));
     }
 }
