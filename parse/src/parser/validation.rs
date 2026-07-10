@@ -74,12 +74,16 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
         for (j, (blank_char, solution_char)) in
             blank_row.chars().zip(solution_row.chars()).enumerate()
         {
-            let blank_blocked = blank_char == TAKEN_SQUARE;
-            let solution_blocked = solution_char == TAKEN_SQUARE;
-
-            if blank_blocked != solution_blocked {
+            // The blank grid is authoritative for black squares. Only a cell
+            // the blank grid marks black while the solution does not is a
+            // genuine inconsistency. A '.' in the solution where the blank is
+            // open is theme/rebus content (e.g. a literal period in an answer),
+            // which is allowed.
+            if blank_char == TAKEN_SQUARE && solution_char != TAKEN_SQUARE {
                 return Err(PuzError::InvalidGrid {
-                    reason: format!("Blocked square mismatch at ({i}, {j})"),
+                    reason: format!(
+                        "Blank grid marks a black square at ({i}, {j}) but the solution does not"
+                    ),
                 });
             }
         }
@@ -240,20 +244,29 @@ mod tests {
         }
     }
 
-    /// Test grid structure validation with inconsistent blocked squares
-    /// Blocked squares must match between blank and solution grids
+    /// The genuine inconsistency still errors: the blank grid marks a cell
+    /// black but the solution has a letter there.
     #[test]
-    fn test_validate_grid_structure_blocked_mismatch() {
+    fn test_validate_grid_structure_blank_black_solution_letter_errors() {
         let blank = vec!["---".to_string(), ".--".to_string()]; // Block at (1,0)
         let solution = vec!["ABC".to_string(), "DEF".to_string()]; // No block at (1,0)
 
         let result = validate_grid_structure(&blank, &solution);
         assert!(result.is_err());
         if let Err(PuzError::InvalidGrid { reason }) = result {
-            assert!(reason.contains("Blocked square mismatch"));
+            assert!(reason.contains("marks a black square"));
         } else {
             panic!("Expected InvalidGrid error");
         }
+    }
+
+    /// A '.' in the solution where the blank grid is open is allowed theme/rebus
+    /// content, not an inconsistency (the blank grid is authoritative).
+    #[test]
+    fn test_validate_grid_structure_solution_period_in_open_cell_ok() {
+        let blank = vec!["---".to_string(), "---".to_string()];
+        let solution = vec!["A.C".to_string(), "DEF".to_string()]; // '.' at (0,1), blank open
+        assert!(validate_grid_structure(&blank, &solution).is_ok());
     }
 
     /// Grid structure validation must not reject non-standard solution cell

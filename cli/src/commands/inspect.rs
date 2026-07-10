@@ -2,10 +2,11 @@
 
 use anyhow::{Context, Result};
 use clap::Subcommand;
-use comfy_table::{Table, presets::UTF8_FULL};
 use owo_colors::OwoColorize;
 use puz_parse::raw;
 use std::path::PathBuf;
+
+use crate::render;
 
 #[derive(Subcommand)]
 pub(crate) enum InspectKind {
@@ -51,8 +52,7 @@ fn inspect_sections(path: &PathBuf) -> Result<()> {
         .map(|h| h.width as usize * h.height as usize)
         .unwrap_or(0);
 
-    let mut table = Table::new();
-    table.load_preset(UTF8_FULL);
+    let mut table = render::bordered_table();
     table.set_header(vec!["section", "offset", "length", "checksum", "summary"]);
     for s in &sections {
         table.add_row(vec![
