@@ -61,16 +61,18 @@
 //!
 //! # Building
 //!
-//! Construct a puzzle from solution rows with [`Puzzle::new`] (using `.` for
-//! black squares) and refine it with chained setters:
+//! Build a puzzle by chaining setters from [`Puzzle::new`]. The grid uses `.`
+//! for black squares; the chain is infallible and the puzzle is validated when
+//! written:
 //!
 //! ```rust
 //! use puz_parse::Puzzle;
 //!
-//! let puzzle = Puzzle::new(["AB.", "CDE"])?
+//! let puzzle = Puzzle::new()
 //!     .title("Example")
+//!     .author("Me")
+//!     .grid(["AB.", "CDE"])
 //!     .diagramless(true);
-//! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
 //! Read and write individual clues through the [`Clues`] API. Each direction is
@@ -79,10 +81,9 @@
 //! ```rust
 //! use puz_parse::Puzzle;
 //!
-//! let mut puzzle = Puzzle::new(["AB", "CD"])?;
+//! let mut puzzle = Puzzle::new().grid(["AB", "CD"]);
 //! puzzle.clues.across.set(1, "First across");
 //! assert_eq!(puzzle.clues.across.get(1), Some("First across"));
-//! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
 //! # Features

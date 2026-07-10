@@ -116,17 +116,19 @@ is not currently supported).
 
 ## Building a puzzle
 
-`Puzzle::new` builds a valid puzzle from solution rows (using `.` for black
-squares) and derives the blank grid and placeholder clues. Chained setters
-refine it:
+`Puzzle::new` starts an empty puzzle; chain setters to build it up. `.grid`
+takes solution rows (using `.` for black squares) and derives the blank grid
+and placeholder clues. The chain is infallible; the puzzle is validated when
+written:
 
 ```rust
 use puz_parse::Puzzle;
 
 fn main() -> Result<(), puz_parse::PuzError> {
-    let puzzle = Puzzle::new(["AB.", "CDE"])?
+    let puzzle = Puzzle::new()
         .title("Example")
         .author("Me")
+        .grid(["AB.", "CDE"])
         .diagramless(true);
 
     let bytes = puz_parse::to_bytes(&puzzle)?;
@@ -137,15 +139,15 @@ fn main() -> Result<(), puz_parse::PuzError> {
 
 ### Working with clues
 
-`Puzzle::new` fills in placeholder clues for every slot. Each direction of
-`Clues` is a `ClueSet` keyed by clue number, so reading and writing a single
-clue reads naturally:
+`.grid` fills in placeholder clues for every slot. Each direction of `Clues` is
+a `ClueSet` keyed by clue number, so reading and writing a single clue reads
+naturally:
 
 ```rust
 use puz_parse::Puzzle;
 
-fn main() -> Result<(), puz_parse::PuzError> {
-    let mut puzzle = Puzzle::new(["AB", "CD"])?;
+fn main() {
+    let mut puzzle = Puzzle::new().grid(["AB", "CD"]);
 
     puzzle.clues.across.set(1, "First across");
     puzzle.clues.down.set(2, "Second down");
@@ -155,7 +157,6 @@ fn main() -> Result<(), puz_parse::PuzError> {
     for (number, text) in puzzle.clues.across.iter() {
         println!("{number}A. {text}");
     }
-    Ok(())
 }
 ```
 

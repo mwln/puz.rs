@@ -1,6 +1,4 @@
-use crate::error::PuzError;
 use crate::grid::{cell_needs_across_clue, cell_needs_down_clue, FREE_SQUARE, TAKEN_SQUARE};
-use crate::parser::validate_puzzle;
 use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
 
 /// A complete crossword puzzle.
@@ -26,11 +24,11 @@ use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
 /// ```rust
 /// use puz_parse::Puzzle;
 ///
-/// let puzzle = Puzzle::new(["AB.", "CDE"])?   // '.' is a black square
+/// let puzzle = Puzzle::new()
 ///     .title("Example")
 ///     .author("Me")
+///     .grid(["AB.", "CDE"])   // '.' is a black square
 ///     .diagramless(true);
-/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
@@ -48,26 +46,74 @@ pub struct Puzzle {
 impl Puzzle {
     /// Build a valid puzzle from solution rows.
     ///
-    /// Each row is a string using `.` for black squares and letters/digits for
-    /// filled cells. The blank grid (`-` for open cells, `.` for black) and
-    /// placeholder clues are generated automatically, so the result is a
-    /// self-consistent puzzle. Refine it with the chained setters
-    /// ([`Puzzle::title`], [`Puzzle::diagramless`], and so on).
+    /// Start a new, empty puzzle.
     ///
-    /// Returns an error if the rows do not form a valid grid (for example,
-    /// rows of differing widths).
+    /// The puzzle has no grid and no clues yet; add them with [`Puzzle::grid`]
+    /// and refine metadata with the chained setters ([`Puzzle::title`],
+    /// [`Puzzle::diagramless`], and so on). The chain is infallible; the puzzle
+    /// is validated when it is written (for example by
+    /// [`to_bytes`](crate::to_bytes)).
     ///
     /// # Examples
     ///
     /// ```rust
     /// use puz_parse::Puzzle;
     ///
-    /// let puzzle = Puzzle::new(["AB.", "CDE"])?;
+    /// let puzzle = Puzzle::new()
+    ///     .title("Example")
+    ///     .author("Me")
+    ///     .grid(["AB.", "CDE"]);
+    ///
     /// assert_eq!(puzzle.info.width, 3);
     /// assert_eq!(puzzle.info.height, 2);
-    /// # Ok::<(), puz_parse::PuzError>(())
     /// ```
-    pub fn new<I, S>(rows: I) -> Result<Puzzle, PuzError>
+    #[must_use]
+    pub fn new() -> Puzzle {
+        Puzzle {
+            info: PuzzleInfo {
+                title: String::new(),
+                author: String::new(),
+                copyright: String::new(),
+                notes: String::new(),
+                width: 0,
+                height: 0,
+                version: "1.3".to_string(),
+                is_scrambled: false,
+                is_diagramless: false,
+            },
+            grid: Grid {
+                blank: Vec::new(),
+                solution: Vec::new(),
+            },
+            clues: Clues::default(),
+            extensions: Extensions {
+                rebus: None,
+                circles: None,
+                given: None,
+            },
+        }
+    }
+
+    /// Set the puzzle grid from solution rows.
+    ///
+    /// Each row is a string using `.` for black squares and letters/digits for
+    /// filled cells. This derives the width and height, generates the blank grid
+    /// (`-` for open cells, `.` for black), and generates placeholder clues for
+    /// every slot. Replace those with [`Puzzle::clues`] if you have real clues.
+    ///
+    /// Malformed grids (for example, rows of differing widths) are not rejected
+    /// here; they are caught when the puzzle is written.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use puz_parse::Puzzle;
+    ///
+    /// let puzzle = Puzzle::new().grid(["AB.", "CDE"]);
+    /// assert_eq!(puzzle.grid.blank, vec!["--.".to_string(), "---".to_string()]);
+    /// ```
+    #[must_use]
+    pub fn grid<I, S>(mut self, rows: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -76,21 +122,6 @@ impl Puzzle {
 
         let height = solution.len();
         let width = solution.first().map(|r| r.chars().count()).unwrap_or(0);
-        if height > 255 || width > 255 {
-            return Err(PuzError::InvalidGrid {
-                reason: format!("grid {width}x{height} exceeds the 255x255 maximum"),
-            });
-        }
-        for (i, row) in solution.iter().enumerate() {
-            let cells = row.chars().count();
-            if cells != width {
-                return Err(PuzError::InvalidGrid {
-                    reason: format!(
-                        "row {i} has width {cells}, expected {width} (rows must be equal width)"
-                    ),
-                });
-            }
-        }
 
         // Blank grid mirrors the solution: black squares stay '.', everything
         // else becomes an open cell '-'.
@@ -109,31 +140,11 @@ impl Puzzle {
             })
             .collect();
 
-        let clues = generate_placeholder_clues(&blank);
-
-        let puzzle = Puzzle {
-            info: PuzzleInfo {
-                title: String::new(),
-                author: String::new(),
-                copyright: String::new(),
-                notes: String::new(),
-                width: width as u8,
-                height: height as u8,
-                version: "1.3".to_string(),
-                is_scrambled: false,
-                is_diagramless: false,
-            },
-            grid: Grid { blank, solution },
-            clues,
-            extensions: Extensions {
-                rebus: None,
-                circles: None,
-                given: None,
-            },
-        };
-
-        validate_puzzle(&puzzle)?;
-        Ok(puzzle)
+        self.clues = generate_placeholder_clues(&blank);
+        self.info.width = width.min(u8::MAX as usize) as u8;
+        self.info.height = height.min(u8::MAX as usize) as u8;
+        self.grid = Grid { blank, solution };
+        self
     }
 
     /// Set the puzzle title.
@@ -193,6 +204,12 @@ impl Puzzle {
     }
 }
 
+impl Default for Puzzle {
+    fn default() -> Self {
+        Puzzle::new()
+    }
+}
+
 /// Generate one placeholder clue per across/down slot, numbered in reading order.
 ///
 /// Mirrors the numbering in [`crate::grid::order_clues`] so generated clues line
@@ -227,15 +244,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_derives_dimensions() {
-        let puzzle = Puzzle::new(["AB.", "CDE"]).unwrap();
+    fn test_new_is_empty() {
+        let puzzle = Puzzle::new();
+        assert_eq!(puzzle.info.width, 0);
+        assert_eq!(puzzle.info.height, 0);
+        assert_eq!(puzzle.info.version, "1.3");
+        assert!(puzzle.grid.solution.is_empty());
+        assert!(puzzle.clues.across.is_empty());
+    }
+
+    #[test]
+    fn test_grid_derives_dimensions() {
+        let puzzle = Puzzle::new().grid(["AB.", "CDE"]);
         assert_eq!(puzzle.info.width, 3);
         assert_eq!(puzzle.info.height, 2);
     }
 
     #[test]
-    fn test_new_generates_blank_grid_matching_black_squares() {
-        let puzzle = Puzzle::new(["AB.", "CDE"]).unwrap();
+    fn test_grid_generates_blank_matching_black_squares() {
+        let puzzle = Puzzle::new().grid(["AB.", "CDE"]);
         assert_eq!(
             puzzle.grid.blank,
             vec!["--.".to_string(), "---".to_string()]
@@ -247,9 +274,9 @@ mod tests {
     }
 
     #[test]
-    fn test_new_generates_a_clue_for_every_slot() {
+    fn test_grid_generates_a_clue_for_every_slot() {
         // A 2x2 open grid has slots numbered 1..=3.
-        let puzzle = Puzzle::new(["AB", "CD"]).unwrap();
+        let puzzle = Puzzle::new().grid(["AB", "CD"]);
         // Across: 1 and 3. Down: 1 and 2.
         assert!(puzzle.clues.across.contains(1));
         assert!(puzzle.clues.across.contains(3));
@@ -258,30 +285,25 @@ mod tests {
     }
 
     #[test]
-    fn test_ragged_rows_error() {
-        let err = Puzzle::new(["ABC", "DE"]).unwrap_err();
-        assert!(matches!(err, PuzError::InvalidGrid { .. }));
-    }
-
-    #[test]
     fn test_diagramless_toggle_sets_flag() {
-        let puzzle = Puzzle::new(["AB.", "CDE"]).unwrap().diagramless(true);
+        let puzzle = Puzzle::new().grid(["AB.", "CDE"]).diagramless(true);
         assert!(puzzle.info.is_diagramless);
     }
 
     #[test]
     fn test_setters_chain() {
-        let puzzle = Puzzle::new(["AB", "CD"])
-            .unwrap()
+        let puzzle = Puzzle::new()
             .title("T")
             .author("A")
             .copyright("C")
             .notes("N")
-            .version("1.4");
+            .version("1.4")
+            .grid(["AB", "CD"]);
         assert_eq!(puzzle.info.title, "T");
         assert_eq!(puzzle.info.author, "A");
         assert_eq!(puzzle.info.copyright, "C");
         assert_eq!(puzzle.info.notes, "N");
         assert_eq!(puzzle.info.version, "1.4");
+        assert_eq!(puzzle.info.width, 2);
     }
 }

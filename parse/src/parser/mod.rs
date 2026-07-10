@@ -20,7 +20,7 @@ use header::parse_header;
 use io::{read_remaining_data, validate_file_magic};
 use strings::parse_strings;
 pub(crate) use strings::RawStrings;
-pub(crate) use validation::validate_puzzle;
+use validation::validate_puzzle;
 
 pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
     parse_puzzle_inner(reader, false)

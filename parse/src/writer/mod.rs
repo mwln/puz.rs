@@ -198,10 +198,10 @@ mod tests {
         // Build a diagramless puzzle, write it (emits ':' + 0x0401), and parse
         // it back. The parser detects ':' and normalizes it to '.', so the
         // reparsed puzzle equals the original.
-        let p = Puzzle::new(["AB.", "CDE"])
-            .unwrap()
+        let p = Puzzle::new()
             .title("Diagramless")
             .author("Tester")
+            .grid(["AB.", "CDE"])
             .diagramless(true);
 
         let bytes = to_bytes(&p).unwrap();
@@ -220,7 +220,7 @@ mod tests {
     fn test_round_trip_clues_set_via_api() {
         // Build a puzzle, set specific clue text through the Clues API, write it,
         // and confirm the clues survive a parse round-trip.
-        let mut p = Puzzle::new(["AB", "CD"]).unwrap();
+        let mut p = Puzzle::new().grid(["AB", "CD"]);
         p.clues.across.set(1, "First across");
         p.clues.across.set(3, "Third across");
         p.clues.down.set(1, "First down");
