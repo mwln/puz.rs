@@ -27,7 +27,11 @@ pub(crate) fn all() -> Vec<Fixture> {
     let mut out = Vec::new();
 
     // Size sweep on plain (all-open) grids.
-    for (name, n) in [("small_5x5", 5), ("standard_15x15", 15), ("large_21x21", 21)] {
+    for (name, n) in [
+        ("small_5x5", 5),
+        ("standard_15x15", 15),
+        ("large_21x21", 21),
+    ] {
         out.push(build(name, plain(n)));
     }
 
@@ -120,9 +124,7 @@ fn with_rebus(mut p: Puzzle) -> Puzzle {
 fn with_circles(mut p: Puzzle) -> Puzzle {
     let (w, h) = (p.info.width as usize, p.info.height as usize);
     // Circle the main diagonal.
-    let grid = (0..h)
-        .map(|r| (0..w).map(|c| r == c).collect())
-        .collect();
+    let grid = (0..h).map(|r| (0..w).map(|c| r == c).collect()).collect();
     p.extensions.circles = Some(grid);
     p
 }
@@ -130,9 +132,7 @@ fn with_circles(mut p: Puzzle) -> Puzzle {
 fn with_given(mut p: Puzzle) -> Puzzle {
     let (w, h) = (p.info.width as usize, p.info.height as usize);
     // Mark the first row as given.
-    let grid = (0..h)
-        .map(|r| (0..w).map(|_| r == 0).collect())
-        .collect();
+    let grid = (0..h).map(|r| (0..w).map(|_| r == 0).collect()).collect();
     p.extensions.given = Some(grid);
     p
 }
