@@ -74,7 +74,11 @@ pub(crate) fn count_clues(grid: &[String]) -> (usize, usize) {
     let mut down_count = 0;
 
     let height = grid.len();
-    let width = if height > 0 { grid[0].len() } else { 0 };
+    let width = if height > 0 {
+        grid[0].chars().count()
+    } else {
+        0
+    };
 
     for row in 0..height {
         for col in 0..width {
@@ -108,7 +112,11 @@ pub(crate) fn order_clues(
 ) -> Result<Vec<String>, crate::error::PuzError> {
     let mut ordered = Vec::new();
     let height = blank_grid.len();
-    let width = if height > 0 { blank_grid[0].len() } else { 0 };
+    let width = if height > 0 {
+        blank_grid[0].chars().count()
+    } else {
+        0
+    };
     let mut number = 1u16;
 
     for row in 0..height {

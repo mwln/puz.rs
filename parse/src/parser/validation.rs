@@ -27,7 +27,10 @@ fn validate_grid_structure(blank: &[String], solution: &[String]) -> Result<(), 
     }
 
     for (i, (blank_row, solution_row)) in blank.iter().zip(solution.iter()).enumerate() {
-        if blank_row.len() != solution_row.len() {
+        // Compare cell counts, not byte lengths: a cell byte may decode to a
+        // multi-byte char, so String::len() (bytes) can differ between grids
+        // that have the same number of cells.
+        if blank_row.chars().count() != solution_row.chars().count() {
             return Err(PuzError::InvalidGrid {
                 reason: format!("Row {i} has mismatched widths"),
             });

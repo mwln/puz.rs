@@ -65,14 +65,15 @@ fn validate_grid_consistency(
     }
 
     for (i, (sol_row, blank_row)) in solution.iter().zip(blank.iter()).enumerate() {
-        if sol_row.len() != width as usize || blank_row.len() != width as usize {
+        // Each grid cell is one character (a byte may decode to a multi-byte
+        // char, e.g. a high byte used as a rebus marker), so compare cell
+        // counts via `chars().count()`, not byte length.
+        let sol_cells = sol_row.chars().count();
+        let blank_cells = blank_row.chars().count();
+        if sol_cells != width as usize || blank_cells != width as usize {
             return Err(PuzError::InvalidGrid {
                 reason: format!(
-                    "Grid width mismatch at row {}: expected {}, got solution: {}, blank: {}",
-                    i,
-                    width,
-                    sol_row.len(),
-                    blank_row.len()
+                    "Grid width mismatch at row {i}: expected {width}, got solution: {sol_cells}, blank: {blank_cells}"
                 ),
             });
         }
@@ -123,6 +124,33 @@ mod tests {
         assert_eq!(grid.blank[0], "---");
         assert_eq!(grid.blank[1], ".--");
         assert_eq!(grid.blank[2], "---");
+    }
+
+    /// Test parsing a grid whose solution contains a non-ASCII cell byte.
+    ///
+    /// Some puzzles use high bytes (e.g. 0xC2) as rebus/special-cell markers.
+    /// Each cell is one byte -> one char, so a row must validate by cell count,
+    /// not UTF-8 byte length. Byte 0xC2 decodes to 'Â' (2 UTF-8 bytes), so a
+    /// byte-length check would see width 3 for a 2-cell row and wrongly reject.
+    #[test]
+    fn test_parse_grids_non_ascii_cell() {
+        let width = 2u8;
+        let height = 2u8;
+
+        // Row 0 solution: [0xC2, 'B'] = one high-byte cell + one letter.
+        let solution_data = [0xC2, b'B', b'C', b'D'];
+        let blank_data = *b"----";
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&solution_data);
+        data.extend_from_slice(&blank_data);
+
+        let mut reader = BufReader::new(Cursor::new(data));
+        let grid = parse_grids(&mut reader, width, height).unwrap();
+
+        assert_eq!(grid.solution[0].chars().count(), 2);
+        assert_eq!(grid.solution[0], "\u{00C2}B");
+        assert_eq!(grid.blank[0], "--");
     }
 
     /// Test parsing grids with all black squares
