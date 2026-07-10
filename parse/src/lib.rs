@@ -59,10 +59,26 @@
 //! [`parse_strict`] or [`validate_bytes`] to treat a checksum mismatch as an
 //! error instead.
 //!
+//! # Building
+//!
+//! Construct a puzzle from solution rows with [`Puzzle::new`] (using `.` for
+//! black squares) and refine it with chained setters:
+//!
+//! ```rust
+//! use puz_parse::Puzzle;
+//!
+//! let puzzle = Puzzle::new(["AB.", "CDE"])?
+//!     .title("Example")
+//!     .diagramless(true);
+//! # Ok::<(), puz_parse::PuzError>(())
+//! ```
+//!
 //! # Features
 //!
 //! - **Complete .puz parsing**: Supports all standard puzzle features
 //! - **Writing**: Serialize a `Puzzle` back to `.puz` with correct checksums
+//! - **Diagramless**: Parses and writes diagramless puzzles (`:` black squares);
+//!   [`PuzzleInfo::is_diagramless`] flags them
 //! - **Validation**: Optional strict checksum verification
 //! - **Error recovery**: Continues parsing with warnings for non-critical issues
 //! - **Extensible**: Handles rebus squares, circles, and other puzzle extensions
