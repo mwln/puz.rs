@@ -1,7 +1,7 @@
 use crate::{
     error::{PuzError, PuzWarning},
     grid::{count_clues, is_standard_cell_char, TAKEN_SQUARE},
-    types::Puzzle,
+    puzzle::Puzzle,
 };
 
 pub(crate) fn validate_puzzle(puzzle: &Puzzle) -> Result<(), PuzError> {
@@ -120,7 +120,7 @@ fn validate_clue_consistency(puzzle: &Puzzle) -> Result<(), PuzError> {
 mod tests {
     use super::*;
     use crate::error::PuzWarning;
-    use crate::types::{Clues, Extensions, Grid, Puzzle, PuzzleInfo, Rebus};
+    use crate::types::{Clues, Extensions, Grid, PuzzleInfo, Rebus};
     use std::collections::HashMap;
 
     /// Helper to create a valid test puzzle

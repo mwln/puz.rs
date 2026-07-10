@@ -1,35 +1,5 @@
 use std::collections::HashMap;
 
-/// A complete crossword puzzle parsed from a .puz file.
-///
-/// This is the main data structure returned by the parsing functions.
-/// It contains all the information needed to display and interact with
-/// a crossword puzzle.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use puz_parse::parse_file;
-///
-/// let puzzle = parse_file("puzzle.puz")?;
-/// println!("Title: {}", puzzle.info.title);
-/// println!("Grid size: {}x{}", puzzle.info.width, puzzle.info.height);
-/// println!("Number of across clues: {}", puzzle.clues.across.len());
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
-pub struct Puzzle {
-    /// Basic puzzle metadata (title, author, dimensions, etc.)
-    pub info: PuzzleInfo,
-    /// The puzzle grid (solution and blank grids)
-    pub grid: Grid,
-    /// Clues organized by direction and number
-    pub clues: Clues,
-    /// Optional puzzle extensions (rebus, circles, etc.)
-    pub extensions: Extensions,
-}
-
 /// Basic information about the puzzle.
 ///
 /// Contains metadata like title, author, dimensions, and format information.

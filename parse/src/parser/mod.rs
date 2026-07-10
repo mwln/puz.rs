@@ -1,5 +1,6 @@
 use crate::{
     error::{ParseResult, PuzError, PuzWarning},
+    puzzle::Puzzle,
     types::*,
 };
 use std::io::{BufReader, Read};
@@ -19,7 +20,7 @@ use header::parse_header;
 use io::{read_remaining_data, validate_file_magic};
 use strings::parse_strings;
 pub(crate) use strings::RawStrings;
-use validation::validate_puzzle;
+pub(crate) use validation::validate_puzzle;
 
 pub(crate) fn parse_puzzle<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
     parse_puzzle_inner(reader, false)

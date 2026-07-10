@@ -2,7 +2,7 @@ use crate::{
     checksums::{self, BITMASK_NORMAL},
     encoding::encode_nul_terminated,
     error::PuzError,
-    types::Puzzle,
+    puzzle::Puzzle,
 };
 
 mod extensions;
@@ -144,7 +144,7 @@ fn validate(puzzle: &Puzzle) -> Result<(), PuzError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{error::PuzError, parse_bytes, to_bytes, types::*};
+    use crate::{error::PuzError, parse_bytes, puzzle::Puzzle, to_bytes, types::*};
     use std::collections::HashMap;
 
     fn sample_puzzle() -> Puzzle {
