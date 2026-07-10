@@ -15,7 +15,7 @@
 mod fixtures;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use puz_parse::{parse_bytes, to_bytes};
+use puz_parse::{to_bytes, Puzzle};
 use std::hint::black_box;
 
 fn bench_parse(c: &mut Criterion) {
@@ -24,7 +24,7 @@ fn bench_parse(c: &mut Criterion) {
     for f in &fixtures {
         group.throughput(Throughput::Bytes(f.bytes.len() as u64));
         group.bench_function(&f.name, |b| {
-            b.iter(|| parse_bytes(black_box(&f.bytes)).unwrap())
+            b.iter(|| Puzzle::from_bytes(black_box(&f.bytes)).unwrap())
         });
     }
     group.finish();
@@ -49,7 +49,7 @@ fn bench_round_trip(c: &mut Criterion) {
         group.bench_function(&f.name, |b| {
             b.iter(|| {
                 let bytes = to_bytes(black_box(&f.puzzle)).unwrap();
-                parse_bytes(black_box(&bytes)).unwrap()
+                Puzzle::from_bytes(black_box(&bytes)).unwrap()
             })
         });
     }
