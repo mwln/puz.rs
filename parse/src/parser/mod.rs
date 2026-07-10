@@ -62,7 +62,10 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
         parse_extensions_with_recovery(&extra_data, header.width, header.height)?;
     warnings.extend(ext_warnings);
 
-    let clues = process_clues(&grids.blank, &strings.clues)?;
+    let (clues, clue_warning) = process_clues(&grids.blank, &strings.clues)?;
+    if let Some(w) = clue_warning {
+        warnings.push(w);
+    }
 
     let raw_strings = strings.raw;
     let puzzle = Puzzle {

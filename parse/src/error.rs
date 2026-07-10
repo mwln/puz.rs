@@ -31,6 +31,17 @@ pub enum PuzWarning {
         row: usize,
         col: usize,
     },
+    /// The file stored more clue strings than the grid has word slots. The
+    /// extra strings are preserved in [`Clues::raw`](crate::Clues::raw); the
+    /// numbered across/down maps use the first `slots` clues in reading order.
+    /// Some puzzles include extra authored clues (for example a meta-puzzle
+    /// revealer) that do not correspond to a grid slot.
+    ExtraClues {
+        /// Number of grid word slots (mapped clues).
+        slots: usize,
+        /// Number of clue strings the file provided.
+        provided: usize,
+    },
 }
 
 /// Result type for parsing that includes warnings.
@@ -334,6 +345,14 @@ impl fmt::Display for PuzWarning {
                     f,
                     "Solution cell ({row}, {col}) has non-standard character '{character}' (U+{code:04X}) with no rebus entry at that position.",
                     code = *character as u32
+                )
+            }
+            PuzWarning::ExtraClues { slots, provided } => {
+                write!(
+                    f,
+                    "File provided {provided} clue strings but the grid has {slots} word slots; \
+                     the {} extra clue(s) are preserved in Clues::raw.",
+                    provided - slots
                 )
             }
         }

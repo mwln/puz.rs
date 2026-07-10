@@ -378,7 +378,9 @@ fn generate_placeholder_clues(blank: &[String]) -> Clues {
         }
     }
 
-    clues
+    // Rebuild through `Clues::new` so `raw` is populated in reading order,
+    // matching how a parsed puzzle's clues look.
+    Clues::new(clues.across, clues.down)
 }
 
 #[cfg(test)]

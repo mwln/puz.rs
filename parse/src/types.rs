@@ -190,17 +190,41 @@ impl FromIterator<(u16, String)> for ClueSet {
 ///     println!("{number}A. {text}");
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
 pub struct Clues {
     /// Across clues, keyed by clue number.
     pub across: ClueSet,
     /// Down clues, keyed by clue number.
     pub down: ClueSet,
+    /// Every clue string from the file, in the order it was stored.
+    ///
+    /// The [`across`](Self::across) and [`down`](Self::down) maps are the
+    /// numbered view produced by mapping grid slots to clues in reading order.
+    /// `raw` preserves the file's complete clue list without loss, including
+    /// any extra strings a puzzle stores beyond its grid slots (for example a
+    /// meta-puzzle revealer). For a normal puzzle, `raw` is the mapped clues in
+    /// slot order.
+    ///
+    /// `raw` is parse provenance and is intentionally **excluded from equality**
+    /// ([`PartialEq`]): two `Clues` are equal when their numbered across/down
+    /// maps match, regardless of `raw`.
+    pub raw: Vec<String>,
+}
+
+impl PartialEq for Clues {
+    fn eq(&self, other: &Self) -> bool {
+        // `raw` is parse provenance and does not affect logical equality; the
+        // numbered across/down maps are the puzzle's identity.
+        self.across == other.across && self.down == other.down
+    }
 }
 
 impl Clues {
     /// Assemble clues from an across and a down [`ClueSet`].
+    ///
+    /// The [`raw`](Self::raw) list is derived from the two sets in reading
+    /// order (each numbered cell's across clue then its down clue).
     ///
     /// # Examples
     ///
@@ -214,8 +238,34 @@ impl Clues {
     /// assert_eq!(clues.across.get(3), Some("Third across"));
     /// ```
     pub fn new(across: ClueSet, down: ClueSet) -> Self {
-        Self { across, down }
+        let raw = reading_order(&across, &down);
+        Self { across, down, raw }
     }
+}
+
+/// Flatten across/down clue sets into `.puz` reading order: walk clue numbers
+/// ascending, emitting each number's across clue (if any) then its down clue
+/// (if any).
+fn reading_order(across: &ClueSet, down: &ClueSet) -> Vec<String> {
+    let mut numbers: Vec<u16> = across
+        .as_map()
+        .keys()
+        .chain(down.as_map().keys())
+        .copied()
+        .collect();
+    numbers.sort_unstable();
+    numbers.dedup();
+
+    let mut out = Vec::new();
+    for n in numbers {
+        if let Some(text) = across.get(n) {
+            out.push(text.to_string());
+        }
+        if let Some(text) = down.get(n) {
+            out.push(text.to_string());
+        }
+    }
+    out
 }
 
 /// Optional puzzle extensions for advanced features.
