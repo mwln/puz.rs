@@ -20,6 +20,9 @@ const MASK: &[u8; 8] = b"ICHEATED";
 /// Standard (non-diagramless) puzzle bitmask, at header offset 0x30.
 pub(crate) const BITMASK_NORMAL: u16 = 0x0001;
 
+/// Diagramless puzzle bitmask, at header offset 0x30.
+pub(crate) const BITMASK_DIAGRAMLESS: u16 = 0x0401;
+
 /// The checksum values stored in a `.puz` file header.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Stored {
