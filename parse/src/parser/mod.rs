@@ -52,7 +52,7 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
     let bitmask = header.bitmask;
     let scrambled_tag = header.scrambled_tag;
 
-    let grids = parse_grids(&mut buf_reader, header.width, header.height)?;
+    let (grids, is_diagramless) = parse_grids(&mut buf_reader, header.width, header.height)?;
 
     let strings = parse_strings(&mut buf_reader, header.num_clues)?;
 
@@ -74,7 +74,7 @@ fn parse_puzzle_inner<R: Read>(reader: R, strict: bool) -> Result<ParseResult<Pu
             height: header.height,
             version: header.version,
             is_scrambled: header.is_scrambled,
-            is_diagramless: false,
+            is_diagramless,
         },
         grid: grids,
         clues,
