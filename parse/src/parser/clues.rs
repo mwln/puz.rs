@@ -3,14 +3,12 @@ use crate::{
     grid::{cell_needs_across_clue, cell_needs_down_clue},
     types::Clues,
 };
-use std::collections::HashMap;
 
 pub(crate) fn process_clues(
     blank_grid: &[String],
     clue_strings: &[String],
 ) -> Result<Clues, PuzError> {
-    let mut across = HashMap::new();
-    let mut down = HashMap::new();
+    let mut clues = Clues::default();
     let mut clue_index = 0;
     let mut clue_number = 1u16;
 
@@ -33,7 +31,9 @@ pub(crate) fn process_clues(
             if needs_across || needs_down {
                 if needs_across {
                     if clue_index < clue_strings.len() {
-                        across.insert(clue_number, clue_strings[clue_index].clone());
+                        clues
+                            .across
+                            .set(clue_number, clue_strings[clue_index].clone());
                         clue_index += 1;
                     } else {
                         return Err(PuzError::InvalidClues {
@@ -46,7 +46,9 @@ pub(crate) fn process_clues(
 
                 if needs_down {
                     if clue_index < clue_strings.len() {
-                        down.insert(clue_number, clue_strings[clue_index].clone());
+                        clues
+                            .down
+                            .set(clue_number, clue_strings[clue_index].clone());
                         clue_index += 1;
                     } else {
                         return Err(PuzError::InvalidClues {
@@ -72,5 +74,5 @@ pub(crate) fn process_clues(
         });
     }
 
-    Ok(Clues { across, down })
+    Ok(clues)
 }

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::error::PuzError;
 use crate::grid::{cell_needs_across_clue, cell_needs_down_clue, FREE_SQUARE, TAKEN_SQUARE};
 use crate::parser::validate_puzzle;
@@ -186,12 +184,11 @@ impl Puzzle {
 
     /// Replace the generated placeholder clues with explicit ones.
     ///
-    /// `across` and `down` map clue numbers to clue text. The caller is
-    /// responsible for providing an entry for every numbered slot; this is a
-    /// convenience and is not validated against the grid.
+    /// The caller is responsible for providing an entry for every numbered slot;
+    /// this is a convenience and is not validated against the grid.
     #[must_use]
-    pub fn clues(mut self, across: HashMap<u16, String>, down: HashMap<u16, String>) -> Self {
-        self.clues = Clues { across, down };
+    pub fn clues(mut self, clues: Clues) -> Self {
+        self.clues = clues;
         self
     }
 }
@@ -201,8 +198,7 @@ impl Puzzle {
 /// Mirrors the numbering in [`crate::grid::order_clues`] so generated clues line
 /// up with the writer's slot ordering.
 fn generate_placeholder_clues(blank: &[String]) -> Clues {
-    let mut across = HashMap::new();
-    let mut down = HashMap::new();
+    let mut clues = Clues::default();
     let height = blank.len();
     let width = blank.first().map(|r| r.chars().count()).unwrap_or(0);
     let mut number = 1u16;
@@ -213,17 +209,17 @@ fn generate_placeholder_clues(blank: &[String]) -> Clues {
             let needs_down = cell_needs_down_clue(blank, row, col);
             if needs_across || needs_down {
                 if needs_across {
-                    across.insert(number, format!("Across {number}"));
+                    clues.across.set(number, format!("Across {number}"));
                 }
                 if needs_down {
-                    down.insert(number, format!("Down {number}"));
+                    clues.down.set(number, format!("Down {number}"));
                 }
                 number += 1;
             }
         }
     }
 
-    Clues { across, down }
+    clues
 }
 
 #[cfg(test)]
@@ -255,10 +251,10 @@ mod tests {
         // A 2x2 open grid has slots numbered 1..=3.
         let puzzle = Puzzle::new(["AB", "CD"]).unwrap();
         // Across: 1 and 3. Down: 1 and 2.
-        assert!(puzzle.clues.across.contains_key(&1));
-        assert!(puzzle.clues.across.contains_key(&3));
-        assert!(puzzle.clues.down.contains_key(&1));
-        assert!(puzzle.clues.down.contains_key(&2));
+        assert!(puzzle.clues.across.contains(1));
+        assert!(puzzle.clues.across.contains(3));
+        assert!(puzzle.clues.down.contains(1));
+        assert!(puzzle.clues.down.contains(2));
     }
 
     #[test]

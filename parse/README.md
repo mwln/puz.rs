@@ -135,6 +135,35 @@ fn main() -> Result<(), puz_parse::PuzError> {
 }
 ```
 
+### Working with clues
+
+`Puzzle::new` fills in placeholder clues for every slot. Each direction of
+`Clues` is a `ClueSet` keyed by clue number, so reading and writing a single
+clue reads naturally:
+
+```rust
+use puz_parse::Puzzle;
+
+fn main() -> Result<(), puz_parse::PuzError> {
+    let mut puzzle = Puzzle::new(["AB", "CD"])?;
+
+    puzzle.clues.across.set(1, "First across");
+    puzzle.clues.down.set(2, "Second down");
+
+    assert_eq!(puzzle.clues.across.get(1), Some("First across"));
+
+    for (number, text) in puzzle.clues.across.iter() {
+        println!("{number}A. {text}");
+    }
+    Ok(())
+}
+```
+
+`set` overwrites and returns the previous text; `get`, `remove`, `contains`,
+`len`, `is_empty`, and `iter` (ascending by number) round out the interface.
+`as_map`, `as_map_mut`, and `into_inner` expose the underlying
+`HashMap<u16, String>` if you need direct map access.
+
 ## Validation
 
 `parse` is lenient about checksums — many real-world `.puz` files have incorrect
