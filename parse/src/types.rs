@@ -52,6 +52,8 @@ pub struct PuzzleInfo {
     pub version: String,
     /// Whether the puzzle solution is scrambled
     pub is_scrambled: bool,
+    /// Whether the puzzle is diagramless (solver isn't shown the black squares).
+    pub is_diagramless: bool,
 }
 
 /// The puzzle grid containing both solution and blank layouts.

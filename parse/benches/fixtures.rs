@@ -78,6 +78,7 @@ fn plain(size: usize) -> Puzzle {
             height: size as u8,
             version: "1.3".into(),
             is_scrambled: false,
+            is_diagramless: false,
         },
         grid: Grid { solution, blank },
         clues,
