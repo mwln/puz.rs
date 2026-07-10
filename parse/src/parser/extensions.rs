@@ -47,6 +47,15 @@ pub(crate) fn parse_extensions_with_recovery(
                             continue;
                         }
 
+                        // An all-zero GRBS marks no rebus cells, so there is no
+                        // rebus and no RTBL is expected. Some tools write this
+                        // empty placeholder; treat it as "no rebus" without
+                        // warning. Only a GRBS that actually marks cells needs
+                        // an RTBL.
+                        if section_data.iter().all(|&b| b == 0) {
+                            continue;
+                        }
+
                         match find_section(data, "RTBL") {
                             Ok(Some(rtbl_data)) => {
                                 match parse_rebus(&section_data, &rtbl_data, width, height) {
@@ -213,4 +222,59 @@ fn parse_gext(data: &[u8], width: u8, height: u8) -> Result<GextResult, PuzError
         if has_circles { Some(circles) } else { None },
         if has_given { Some(given) } else { None },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Frame a section as it appears on disk: 4-byte tag, u16 LE length, u16
+    /// checksum (unused by the parser), then the data bytes.
+    fn section(tag: &str, data: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(tag.as_bytes());
+        out.extend_from_slice(&(data.len() as u16).to_le_bytes());
+        out.extend_from_slice(&[0, 0]); // checksum, ignored on read
+        out.extend_from_slice(data);
+        out
+    }
+
+    #[test]
+    fn test_empty_grbs_without_rtbl_is_not_a_rebus_and_does_not_warn() {
+        // An all-zero GRBS marks no cells, so there is no rebus and no RTBL is
+        // needed. This must not warn. (Matches ~60 real NYT files.)
+        let (w, h) = (2u8, 2u8);
+        let grbs = section("GRBS", &[0, 0, 0, 0]);
+        let (ext, warnings) = parse_extensions_with_recovery(&grbs, w, h).unwrap();
+        assert!(ext.rebus.is_none());
+        assert!(
+            warnings.is_empty(),
+            "empty GRBS should not warn, got: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_marked_grbs_without_rtbl_warns() {
+        // A GRBS that marks a cell but has no RTBL is a genuinely broken rebus.
+        let (w, h) = (2u8, 2u8);
+        let grbs = section("GRBS", &[1, 0, 0, 0]); // cell (0,0) uses rebus key 1
+        let (ext, warnings) = parse_extensions_with_recovery(&grbs, w, h).unwrap();
+        assert!(ext.rebus.is_none());
+        assert_eq!(warnings.len(), 1);
+        assert!(matches!(
+            &warnings[0],
+            PuzWarning::SkippedExtension { section, .. } if section == "GRBS"
+        ));
+    }
+
+    #[test]
+    fn test_marked_grbs_with_rtbl_parses_rebus() {
+        let (w, h) = (2u8, 2u8);
+        let mut data = section("GRBS", &[1, 0, 0, 0]);
+        data.extend(section("RTBL", b" 1:HEART;"));
+        let (ext, warnings) = parse_extensions_with_recovery(&data, w, h).unwrap();
+        let rebus = ext.rebus.expect("rebus should parse");
+        assert_eq!(rebus.table.get(&1).map(String::as_str), Some("HEART"));
+        assert!(warnings.is_empty(), "got: {warnings:?}");
+    }
 }
