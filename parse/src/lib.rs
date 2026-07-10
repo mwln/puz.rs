@@ -73,6 +73,18 @@
 //! # Ok::<(), puz_parse::PuzError>(())
 //! ```
 //!
+//! Read and write individual clues through the [`Clues`] API. Each direction is
+//! a [`ClueSet`] keyed by clue number:
+//!
+//! ```rust
+//! use puz_parse::Puzzle;
+//!
+//! let mut puzzle = Puzzle::new(["AB", "CD"])?;
+//! puzzle.clues.across.set(1, "First across");
+//! assert_eq!(puzzle.clues.across.get(1), Some("First across"));
+//! # Ok::<(), puz_parse::PuzError>(())
+//! ```
+//!
 //! # Features
 //!
 //! - **Complete .puz parsing**: Supports all standard puzzle features

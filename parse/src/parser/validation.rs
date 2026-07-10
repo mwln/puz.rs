@@ -141,10 +141,7 @@ mod tests {
                 blank: vec!["---".to_string(), "---".to_string(), "---".to_string()],
                 solution: vec!["ABC".to_string(), "DEF".to_string(), "GHI".to_string()],
             },
-            clues: Clues {
-                across: HashMap::new(),
-                down: HashMap::new(),
-            },
+            clues: Clues::default(),
             extensions: Extensions {
                 rebus: None,
                 circles: None,
@@ -286,13 +283,13 @@ mod tests {
         let mut puzzle = create_test_puzzle(3, 3);
 
         // Create expected clues based on grid structure
-        puzzle.clues.across.insert(1, "First across".to_string());
-        puzzle.clues.across.insert(4, "Second across".to_string());
-        puzzle.clues.across.insert(7, "Third across".to_string());
+        puzzle.clues.across.set(1, "First across");
+        puzzle.clues.across.set(4, "Second across");
+        puzzle.clues.across.set(7, "Third across");
 
-        puzzle.clues.down.insert(1, "First down".to_string());
-        puzzle.clues.down.insert(2, "Second down".to_string());
-        puzzle.clues.down.insert(3, "Third down".to_string());
+        puzzle.clues.down.set(1, "First down");
+        puzzle.clues.down.set(2, "Second down");
+        puzzle.clues.down.set(3, "Third down");
 
         let result = validate_clue_consistency(&puzzle);
         // This test depends on the specific grid structure and clue counting logic
@@ -367,10 +364,7 @@ mod tests {
                 is_diagramless: false,
             },
             grid: Grid { blank, solution },
-            clues: Clues {
-                across: HashMap::new(),
-                down: HashMap::new(),
-            },
+            clues: Clues::default(),
             extensions: Extensions {
                 rebus,
                 circles: None,

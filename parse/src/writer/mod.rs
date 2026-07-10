@@ -173,15 +173,10 @@ mod tests {
                 solution: vec!["AB".into(), "CD".into()],
                 blank: vec!["--".into(), "--".into()],
             },
-            clues: {
-                let mut across = HashMap::new();
-                across.insert(1, "a1".into());
-                across.insert(3, "a3".into());
-                let mut down = HashMap::new();
-                down.insert(1, "d1".into());
-                down.insert(2, "d2".into());
-                Clues { across, down }
-            },
+            clues: Clues::new(
+                ClueSet::new([(1, "a1"), (3, "a3")]),
+                ClueSet::new([(1, "d1"), (2, "d2")]),
+            ),
             extensions: Extensions {
                 rebus: None,
                 circles: None,
@@ -218,6 +213,26 @@ mod tests {
         let reparsed = parse_bytes(&bytes).unwrap();
         assert!(reparsed.info.is_diagramless);
         assert_eq!(reparsed.grid.solution[0], "AB."); // ':' normalized back to '.'
+        assert_eq!(reparsed, p);
+    }
+
+    #[test]
+    fn test_round_trip_clues_set_via_api() {
+        // Build a puzzle, set specific clue text through the Clues API, write it,
+        // and confirm the clues survive a parse round-trip.
+        let mut p = Puzzle::new(["AB", "CD"]).unwrap();
+        p.clues.across.set(1, "First across");
+        p.clues.across.set(3, "Third across");
+        p.clues.down.set(1, "First down");
+        p.clues.down.set(2, "Second down");
+
+        let bytes = to_bytes(&p).unwrap();
+        let reparsed = parse_bytes(&bytes).unwrap();
+
+        assert_eq!(reparsed.clues.across.get(1), Some("First across"));
+        assert_eq!(reparsed.clues.across.get(3), Some("Third across"));
+        assert_eq!(reparsed.clues.down.get(1), Some("First down"));
+        assert_eq!(reparsed.clues.down.get(2), Some("Second down"));
         assert_eq!(reparsed, p);
     }
 
@@ -309,14 +324,13 @@ mod tests {
             })
             .collect();
 
-        let mut across = HashMap::new();
-        let mut down = HashMap::new();
+        let mut clues = Clues::default();
         let (na, nd) = crate::grid::count_clues(&blank);
         // Fill exactly the required number of clues, numbered by position.
         let ordered_numbers = numbered_cells(&blank);
-        assign_clues(&ordered_numbers, &blank, &mut across, &mut down);
-        assert_eq!(across.len(), na);
-        assert_eq!(down.len(), nd);
+        assign_clues(&ordered_numbers, &blank, &mut clues);
+        assert_eq!(clues.across.len(), na);
+        assert_eq!(clues.down.len(), nd);
 
         let p = Puzzle {
             info: PuzzleInfo {
@@ -331,7 +345,7 @@ mod tests {
                 is_diagramless: false,
             },
             grid: Grid { solution, blank },
-            clues: Clues { across, down },
+            clues,
             extensions: Extensions {
                 rebus: None,
                 circles: None,
@@ -362,18 +376,13 @@ mod tests {
         out
     }
 
-    fn assign_clues(
-        cells: &[(usize, usize, u16)],
-        blank: &[String],
-        across: &mut HashMap<u16, String>,
-        down: &mut HashMap<u16, String>,
-    ) {
+    fn assign_clues(cells: &[(usize, usize, u16)], blank: &[String], clues: &mut Clues) {
         for &(row, col, n) in cells {
             if crate::grid::cell_needs_across_clue(blank, row, col) {
-                across.insert(n, format!("across {n}"));
+                clues.across.set(n, format!("across {n}"));
             }
             if crate::grid::cell_needs_down_clue(blank, row, col) {
-                down.insert(n, format!("down {n}"));
+                clues.down.set(n, format!("down {n}"));
             }
         }
     }
@@ -423,7 +432,7 @@ mod tests {
     fn test_reject_clue_count_mismatch() {
         let mut p = sample_puzzle();
         // remove a required across clue
-        p.clues.across.remove(&3);
+        p.clues.across.remove(3);
         assert!(matches!(
             to_bytes(&p).unwrap_err(),
             PuzError::InvalidClues { .. }

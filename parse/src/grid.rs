@@ -129,10 +129,10 @@ pub(crate) fn order_clues(
             let down = cell_needs_down_clue(blank_grid, row, col);
             if across || down {
                 if across {
-                    ordered.push(clue_at(&clues.across, number, "across")?);
+                    ordered.push(clue_at(clues.across.as_map(), number, "across")?);
                 }
                 if down {
-                    ordered.push(clue_at(&clues.down, number, "down")?);
+                    ordered.push(clue_at(clues.down.as_map(), number, "down")?);
                 }
                 number += 1;
             }
@@ -157,8 +157,7 @@ fn clue_at(
 mod tests {
     use super::*;
     use crate::error::PuzError;
-    use crate::types::Clues;
-    use std::collections::HashMap;
+    use crate::types::{ClueSet, Clues};
 
     #[test]
     fn test_is_playable_square() {
@@ -385,13 +384,10 @@ mod tests {
         // 2x2 all-open: (0,0) starts across #1 and down #1; (0,1) down #2;
         // (1,0) across #3.
         let blank = vec!["--".to_string(), "--".to_string()];
-        let mut across = HashMap::new();
-        across.insert(1, "a1".to_string());
-        across.insert(3, "a3".to_string());
-        let mut down = HashMap::new();
-        down.insert(1, "d1".to_string());
-        down.insert(2, "d2".to_string());
-        let clues = Clues { across, down };
+        let clues = Clues::new(
+            ClueSet::new([(1, "a1"), (3, "a3")]),
+            ClueSet::new([(1, "d1"), (2, "d2")]),
+        );
         assert_eq!(
             order_clues(&blank, &clues).unwrap(),
             vec!["a1", "d1", "d2", "a3"]
@@ -402,13 +398,10 @@ mod tests {
     fn test_order_3x3_with_center_block() {
         // Verified empirically against parser numbering.
         let blank = vec!["---".to_string(), "-.-".to_string(), "---".to_string()];
-        let mut across = HashMap::new();
-        across.insert(1, "1a".to_string());
-        across.insert(3, "3a".to_string());
-        let mut down = HashMap::new();
-        down.insert(1, "1d".to_string());
-        down.insert(2, "2d".to_string());
-        let clues = Clues { across, down };
+        let clues = Clues::new(
+            ClueSet::new([(1, "1a"), (3, "3a")]),
+            ClueSet::new([(1, "1d"), (2, "2d")]),
+        );
         assert_eq!(
             order_clues(&blank, &clues).unwrap(),
             vec!["1a", "1d", "2d", "3a"]
@@ -418,13 +411,10 @@ mod tests {
     #[test]
     fn test_order_emits_across_before_down_at_same_number() {
         let blank = vec!["--".to_string(), "--".to_string()];
-        let mut across = HashMap::new();
-        across.insert(1, "ACROSS".to_string());
-        across.insert(3, "x".to_string());
-        let mut down = HashMap::new();
-        down.insert(1, "DOWN".to_string());
-        down.insert(2, "y".to_string());
-        let clues = Clues { across, down };
+        let clues = Clues::new(
+            ClueSet::new([(1, "ACROSS"), (3, "x")]),
+            ClueSet::new([(1, "DOWN"), (2, "y")]),
+        );
         let ordered = order_clues(&blank, &clues).unwrap();
         assert_eq!(ordered[0], "ACROSS");
         assert_eq!(ordered[1], "DOWN");
@@ -433,12 +423,7 @@ mod tests {
     #[test]
     fn test_order_missing_clue_errors() {
         let blank = vec!["--".to_string(), "--".to_string()];
-        let mut across = HashMap::new();
-        across.insert(1, "a1".to_string());
-        let clues = Clues {
-            across,
-            down: HashMap::new(),
-        };
+        let clues = Clues::new(ClueSet::new([(1, "a1")]), ClueSet::default());
         assert!(matches!(
             order_clues(&blank, &clues).unwrap_err(),
             PuzError::InvalidClues { .. }
@@ -448,14 +433,10 @@ mod tests {
     #[test]
     fn test_order_ignores_extra_unreferenced_clues() {
         let blank = vec!["--".to_string(), "--".to_string()];
-        let mut across = HashMap::new();
-        across.insert(1, "a1".to_string());
-        across.insert(3, "a3".to_string());
-        across.insert(99, "orphan".to_string());
-        let mut down = HashMap::new();
-        down.insert(1, "d1".to_string());
-        down.insert(2, "d2".to_string());
-        let clues = Clues { across, down };
+        let clues = Clues::new(
+            ClueSet::new([(1, "a1"), (3, "a3"), (99, "orphan")]),
+            ClueSet::new([(1, "d1"), (2, "d2")]),
+        );
         let ordered = order_clues(&blank, &clues).unwrap();
         assert_eq!(ordered, vec!["a1", "d1", "d2", "a3"]);
         assert!(!ordered.contains(&"orphan".to_string()));
@@ -464,10 +445,7 @@ mod tests {
     #[test]
     fn test_order_empty_grid_yields_no_clues() {
         let blank: Vec<String> = vec![];
-        let clues = Clues {
-            across: HashMap::new(),
-            down: HashMap::new(),
-        };
+        let clues = Clues::default();
         assert!(order_clues(&blank, &clues).unwrap().is_empty());
     }
 }

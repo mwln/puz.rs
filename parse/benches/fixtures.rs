@@ -96,8 +96,7 @@ fn plain(size: usize) -> Puzzle {
 /// first column, and a down word when it is in the first row. Each numbered
 /// cell advances the clue number once.
 fn clues_for_open_grid(size: usize) -> Clues {
-    let mut across = HashMap::new();
-    let mut down = HashMap::new();
+    let mut clues = Clues::default();
     let mut number = 1u16;
 
     for row in 0..size {
@@ -108,16 +107,16 @@ fn clues_for_open_grid(size: usize) -> Clues {
                 continue;
             }
             if starts_across {
-                across.insert(number, format!("across {number}"));
+                clues.across.set(number, format!("across {number}"));
             }
             if starts_down {
-                down.insert(number, format!("down {number}"));
+                clues.down.set(number, format!("down {number}"));
             }
             number += 1;
         }
     }
 
-    Clues { across, down }
+    clues
 }
 
 /// A reproducible letter for the cell at `(row, col)`.
