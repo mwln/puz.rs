@@ -211,7 +211,7 @@ pub fn parse_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
 
 /// Serialize a puzzle to an in-memory `.puz` byte buffer.
 ///
-/// This is the core writing function. Use [`write`] or [`write_file`] to send
+/// This is the core writing function. Use [`write()`] or [`write_file`] to send
 /// the bytes to a sink or file.
 ///
 /// # Example
