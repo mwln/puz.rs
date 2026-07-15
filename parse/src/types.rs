@@ -45,11 +45,30 @@ pub struct Grid {
 /// The direction of a clue or word: across or down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "json", serde(rename_all = "lowercase"))]
 pub enum Direction {
     /// A horizontal word, read left to right.
     Across,
     /// A vertical word, read top to bottom.
     Down,
+}
+
+/// A single clue paired with its answer, read from the solution grid.
+///
+/// Produced by [`Puzzle::clue_answers`](crate::Puzzle::clue_answers). The
+/// `answer` is the solution-grid characters for the slot, taken as-is (a rebus
+/// or theme cell contributes whatever character the grid stores there).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
+pub struct ClueAnswer {
+    /// Whether the entry runs across or down.
+    pub direction: Direction,
+    /// The clue number.
+    pub number: u16,
+    /// The clue text.
+    pub clue: String,
+    /// The answer, read from the solution grid for this slot.
+    pub answer: String,
 }
 
 /// The clues for one direction, keyed by clue number.

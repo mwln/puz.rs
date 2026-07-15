@@ -41,6 +41,7 @@ puz dump header <FILE>      declared dimensions, clue count, bitmask, version
 puz dump grid <FILE>        the solution and blank grids, with any mismatches
 puz dump strings <FILE>     title, author, copyright, the clue list, and notes
 puz dump clues <FILE>       clue numbering vs. the file's declared/provided clues
+puz dump answers <FILE>     clues paired with their answers, as a JSON array
 puz inspect sections <FILE> extension sections (GRBS, RTBL, GEXT, ...)
 ```
 
@@ -121,12 +122,28 @@ puz dump header  puzzle.puz    # dimensions, clue count, bitmask, version
 puz dump grid    puzzle.puz    # solution + blank grids, black-square mismatches
 puz dump strings puzzle.puz    # title/author/copyright, numbered clues, notes
 puz dump clues   puzzle.puz    # computed clue numbering vs. the file's clue list
+puz dump answers puzzle.puz    # clues paired with answers, as JSON
 puz inspect sections puzzle.puz  # GRBS / RTBL / GEXT extension sections
 ```
 
 `dump clues` is handy for puzzles whose declared clue count does not match the
 grid geometry: it shows the across/down slot counts, the declared `num_clues`,
 the number of clue strings in the file, and any extras.
+
+`dump answers` prints a JSON array of every clue with the answer read from the
+solution grid, one object per entry:
+
+```json
+[
+  { "direction": "across", "number": 1, "clue": "Cry of disgust", "answer": "BAH" },
+  { "direction": "down", "number": 1, "clue": "...", "answer": "BRAVE" }
+]
+```
+
+The answer is the solution-grid characters for that slot, taken as-is, so a
+rebus or theme cell shows whatever character the grid stores. Pass `--pretty`
+to indent the output. This is a quick way to check that a puzzle's clues and
+answers line up.
 
 ## Output format
 
