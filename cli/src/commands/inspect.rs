@@ -9,8 +9,9 @@ use crate::render;
 
 #[derive(Subcommand)]
 pub(crate) enum InspectKind {
-    /// Extension sections (GRBS, RTBL, GEXT, ...).
+    /// list extension sections (GRBS, RTBL, GEXT, ...)
     Sections {
+        /// the .puz file to read
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },

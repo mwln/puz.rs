@@ -13,24 +13,27 @@ use crate::render;
 
 #[derive(Subcommand)]
 pub(crate) enum DumpKind {
-    /// Declared dimensions, clue count, bitmask, version, and scrambled tag.
+    /// show the header: dimensions, clue count, bitmask, version, scrambled tag
     Header {
+        /// the .puz file to read
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// The solution and blank grids, with any black-square mismatches.
+    /// show the solution and blank grids, and any black-square mismatches
     Grid {
+        /// the .puz file to read
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// Title, author, copyright, the numbered clue list, and notes.
+    /// show the title, author, copyright, clue list, and notes
     Strings {
+        /// the .puz file to read
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// The clue numbering our geometry computes, cross-checked against the
-    /// file's declared clue count and provided clue strings.
+    /// compare the grid's clue numbering against the file's clue list
     Clues {
+        /// the .puz file to read
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },

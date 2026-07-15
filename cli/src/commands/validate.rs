@@ -7,15 +7,15 @@ use std::path::{Path, PathBuf};
 
 #[derive(Args)]
 pub(crate) struct ValidateArgs {
-    /// Directory to scan recursively for `.puz` files.
+    /// directory to scan recursively for .puz files
     #[arg(value_name = "DIR")]
     dir: PathBuf,
 
-    /// Print a line for every file, including clean ones.
+    /// print a line for every file, including clean ones
     #[arg(long)]
     verbose: bool,
 
-    /// Print only hard parse failures, not warnings.
+    /// print only parse failures, not warnings
     #[arg(long)]
     errors_only: bool,
 }

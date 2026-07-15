@@ -8,19 +8,19 @@ use std::path::Path;
 
 #[derive(Args)]
 pub(crate) struct ParseArgs {
-    /// One or more `.puz` files to parse.
+    /// puzzle files to parse
     #[arg(value_name = "PUZZLE", required = true, num_args = 1..)]
     pub(crate) files: Vec<String>,
 
-    /// Write output to a file instead of stdout.
+    /// write output to a file instead of stdout
     #[arg(short, long, value_name = "FILE")]
     pub(crate) output: Option<String>,
 
-    /// Pretty-print the JSON output.
+    /// indent the JSON output
     #[arg(short, long)]
     pub(crate) pretty: bool,
 
-    /// For a single file, output the puzzle object directly (not in an array).
+    /// for a single file, print the puzzle object directly, not in an array
     #[arg(short, long)]
     pub(crate) single: bool,
 }

@@ -4,7 +4,7 @@ mod commands;
 mod render;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 
 use commands::{dump, inspect, parse_json, validate};
 
@@ -16,48 +16,60 @@ use commands::{dump, inspect, parse_json, validate};
     // Allow `puz file.puz ...` with no subcommand to parse to JSON, preserving
     // the original behavior.
     args_conflicts_with_subcommands = true,
-    subcommand_negates_reqs = true
+    subcommand_negates_reqs = true,
+    // Override clap's built-in flags so their help text matches our lowercase
+    // style ("print help" instead of "Print help").
+    disable_help_flag = true,
+    disable_version_flag = true
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
 
-    /// Files to parse to JSON (when no subcommand is given).
+    /// print help
+    #[arg(short, long, action = ArgAction::Help, global = true)]
+    help: Option<bool>,
+
+    /// print version
+    #[arg(short = 'V', long, action = ArgAction::Version)]
+    version: Option<bool>,
+
+    /// puzzle files to parse to JSON
     #[arg(value_name = "PUZZLE", num_args = 1..)]
     files: Vec<String>,
 
-    /// Write JSON output to a file instead of stdout.
+    /// write output to a file instead of stdout
     #[arg(short, long, value_name = "FILE")]
     output: Option<String>,
 
-    /// Pretty-print the JSON output.
+    /// indent the JSON output
     #[arg(short, long)]
     pretty: bool,
 
-    /// For a single file, output the puzzle object directly (not in an array).
+    /// for a single file, print the puzzle object directly, not in an array
     #[arg(short, long)]
     single: bool,
 
-    /// Disable colored and Unicode-styled output (also honors `NO_COLOR`).
+    /// disable color and Unicode output (also honors NO_COLOR)
     #[arg(long, global = true)]
     no_color: bool,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// Parse puzzles and output JSON (same as running `puz FILES...`).
+    /// parse puzzles to JSON (same as `puz FILES...`)
     Parse(parse_json::ParseArgs),
 
-    /// Bulk-validate every `.puz` file under a directory.
+    /// validate every .puz file under a directory
     Validate(validate::ValidateArgs),
 
-    /// Print raw structure of a single file (works even if it fails to parse).
+    /// show a file's raw structure, even if it fails to parse
     Dump {
         #[command(subcommand)]
         what: dump::DumpKind,
     },
 
-    /// Inspect a single file's extension sections.
+    /// show a file's extension sections
     Inspect {
         #[command(subcommand)]
         what: inspect::InspectKind,
