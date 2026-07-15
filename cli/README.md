@@ -47,6 +47,11 @@ puz inspect sections <FILE> extension sections (GRBS, RTBL, GEXT, ...)
 The `dump` and `inspect` commands read the file bytes directly rather than fully
 parsing, so they still produce useful output for files that fail to parse.
 
+Colored, Unicode-styled output is used when writing to a terminal. It is
+disabled automatically when output is redirected (e.g. piped to a file), when
+the `NO_COLOR` environment variable is set, or with the global `--no-color`
+flag.
+
 ## Parsing to JSON
 
 Running `puz` with file arguments (no subcommand) parses them to JSON, the same

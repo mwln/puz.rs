@@ -2,7 +2,6 @@
 
 use anyhow::{Context, Result};
 use clap::Subcommand;
-use owo_colors::OwoColorize;
 use puz_parse::raw;
 use std::path::PathBuf;
 
@@ -27,23 +26,22 @@ fn inspect_sections(path: &PathBuf) -> Result<()> {
     let data = std::fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
 
     let header = raw::read_header(&data);
-    println!("{}", path.display().bold());
+    println!("{}", render::bold(path.display()));
     if let Some(h) = &header {
         println!(
             "{}",
-            format!(
+            render::dim(format!(
                 "grid {}x{} = {} cells",
                 h.width,
                 h.height,
                 h.width as usize * h.height as usize
-            )
-            .dimmed()
+            ))
         );
     }
 
     let sections = raw::scan_sections(&data);
     if sections.is_empty() {
-        println!("{}", "no extension sections found".dimmed());
+        println!("{}", render::dim("no extension sections found"));
         return Ok(());
     }
 
