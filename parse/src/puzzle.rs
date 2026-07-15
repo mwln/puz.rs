@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::error::{ParseResult, PuzError};
 use crate::grid::{FREE_SQUARE, TAKEN_SQUARE, cell_needs_across_clue, cell_needs_down_clue};
-use crate::types::{Clues, Extensions, Grid, PuzzleInfo};
+use crate::types::{ClueAnswer, Clues, Direction, Extensions, Grid, PuzzleInfo};
 
 /// A complete crossword puzzle.
 ///
@@ -267,6 +267,91 @@ impl Puzzle {
         self.clues = clues;
         self
     }
+
+    /// Pair every clue with the answer read from the solution grid.
+    ///
+    /// Walks the grid in reading order. For each numbered cell, an across entry
+    /// reads solution cells rightward until a black square or the grid edge; a
+    /// down entry reads downward the same way. Each entry is matched with its
+    /// clue text from [`Clues::across`] / [`Clues::down`]. Entries are returned
+    /// in reading order (across before down at the same number).
+    ///
+    /// The answer characters are taken from the solution grid as-is, so a rebus
+    /// or theme cell contributes whatever character the grid stores there.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use puz_parse::{Direction, Puzzle};
+    ///
+    /// let puzzle = Puzzle::new().grid(["AB", "CD"]);
+    /// let entries = puzzle.clue_answers();
+    /// let a1 = entries.iter().find(|e| e.direction == Direction::Across && e.number == 1).unwrap();
+    /// assert_eq!(a1.answer, "AB");
+    /// ```
+    pub fn clue_answers(&self) -> Vec<ClueAnswer> {
+        let blank = &self.grid.blank;
+        let solution = &self.grid.solution;
+        let width = blank.first().map(|r| r.chars().count()).unwrap_or(0);
+        let height = blank.len();
+
+        // Row-major char grid of the solution for O(1)-ish cell access.
+        let sol: Vec<Vec<char>> = solution.iter().map(|r| r.chars().collect()).collect();
+        let cell = |row: usize, col: usize| -> Option<char> {
+            sol.get(row).and_then(|r| r.get(col)).copied()
+        };
+
+        let mut out = Vec::new();
+        let mut number = 1u16;
+        for row in 0..height {
+            for col in 0..width {
+                let starts_across = cell_needs_across_clue(blank, row, col);
+                let starts_down = cell_needs_down_clue(blank, row, col);
+                if !(starts_across || starts_down) {
+                    continue;
+                }
+
+                if starts_across {
+                    let mut answer = String::new();
+                    let mut c = col;
+                    while let Some(ch) = cell(row, c) {
+                        if ch == TAKEN_SQUARE {
+                            break;
+                        }
+                        answer.push(ch);
+                        c += 1;
+                    }
+                    out.push(ClueAnswer {
+                        direction: Direction::Across,
+                        number,
+                        clue: self.clues.across.get(number).unwrap_or("").to_string(),
+                        answer,
+                    });
+                }
+
+                if starts_down {
+                    let mut answer = String::new();
+                    let mut r = row;
+                    while let Some(ch) = cell(r, col) {
+                        if ch == TAKEN_SQUARE {
+                            break;
+                        }
+                        answer.push(ch);
+                        r += 1;
+                    }
+                    out.push(ClueAnswer {
+                        direction: Direction::Down,
+                        number,
+                        clue: self.clues.down.get(number).unwrap_or("").to_string(),
+                        answer,
+                    });
+                }
+
+                number += 1;
+            }
+        }
+        out
+    }
 }
 
 impl Default for Puzzle {
@@ -487,5 +572,52 @@ mod tests {
             .from_bytes(&bytes)
             .unwrap_err();
         assert!(matches!(err, PuzError::InvalidChecksum { .. }));
+    }
+
+    #[test]
+    fn test_clue_answers_reads_solution_letters() {
+        // 2x2 open grid. Slots: 1A "AB", 1D "AC", 2D "BD", 3A "CD".
+        let mut p = Puzzle::new().grid(["AB", "CD"]);
+        p.clues.across.set(1, "top row");
+        p.clues.across.set(3, "bottom row");
+        p.clues.down.set(1, "left col");
+        p.clues.down.set(2, "right col");
+
+        let entries = p.clue_answers();
+
+        let find = |dir: Direction, n: u16| {
+            entries
+                .iter()
+                .find(|e| e.direction == dir && e.number == n)
+                .unwrap_or_else(|| panic!("missing {dir:?} {n}"))
+        };
+        assert_eq!(find(Direction::Across, 1).answer, "AB");
+        assert_eq!(find(Direction::Across, 1).clue, "top row");
+        assert_eq!(find(Direction::Across, 3).answer, "CD");
+        assert_eq!(find(Direction::Down, 1).answer, "AC");
+        assert_eq!(find(Direction::Down, 2).answer, "BD");
+    }
+
+    #[test]
+    fn test_clue_answers_stops_at_black_squares() {
+        // Row 0: "AB." -> 1A is "AB" (stops before the black square).
+        let p = Puzzle::new().grid(["AB.", "CDE"]);
+        let entries = p.clue_answers();
+        let a1 = entries
+            .iter()
+            .find(|e| e.direction == Direction::Across && e.number == 1)
+            .unwrap();
+        assert_eq!(a1.answer, "AB");
+    }
+
+    #[test]
+    fn test_clue_answers_reading_order_across_before_down() {
+        // At a cell that starts both, across comes before down.
+        let p = Puzzle::new().grid(["AB", "CD"]);
+        let entries = p.clue_answers();
+        assert_eq!(entries[0].direction, Direction::Across);
+        assert_eq!(entries[0].number, 1);
+        assert_eq!(entries[1].direction, Direction::Down);
+        assert_eq!(entries[1].number, 1);
     }
 }

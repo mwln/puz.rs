@@ -37,6 +37,16 @@ pub(crate) enum DumpKind {
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
+    /// print clues paired with their answers as a JSON array
+    Answers {
+        /// the .puz file to read
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+
+        /// indent the JSON output
+        #[arg(short, long)]
+        pretty: bool,
+    },
 }
 
 pub(crate) fn run(what: DumpKind) -> Result<()> {
@@ -45,6 +55,7 @@ pub(crate) fn run(what: DumpKind) -> Result<()> {
         DumpKind::Grid { file } => dump_grid(&file),
         DumpKind::Strings { file } => dump_strings(&file),
         DumpKind::Clues { file } => dump_clues(&file),
+        DumpKind::Answers { file, pretty } => dump_answers(&file, pretty),
     }
 }
 
@@ -245,6 +256,27 @@ fn dump_clues(path: &PathBuf) -> Result<()> {
             println!("  [{}] {}", clue_idx + i, render_clue(extra));
         }
     }
+    Ok(())
+}
+
+fn dump_answers(path: &PathBuf, pretty: bool) -> Result<()> {
+    let data = read_file(path)?;
+    // Parse leniently; the point is to read the grid and clues, so tolerate
+    // checksum and other recoverable warnings (reported to stderr).
+    let parsed = puz_parse::Puzzle::reader()
+        .from_bytes_verbose(&data)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
+    for warning in &parsed.warnings {
+        eprintln!("warning: {warning}");
+    }
+
+    let entries = parsed.result.clue_answers();
+    let json = if pretty {
+        serde_json::to_string_pretty(&entries)?
+    } else {
+        serde_json::to_string(&entries)?
+    };
+    println!("{json}");
     Ok(())
 }
 
