@@ -37,6 +37,10 @@ struct Cli {
     /// For a single file, output the puzzle object directly (not in an array).
     #[arg(short, long)]
     single: bool,
+
+    /// Disable colored and Unicode-styled output (also honors `NO_COLOR`).
+    #[arg(long, global = true)]
+    no_color: bool,
 }
 
 #[derive(Subcommand)]
@@ -62,6 +66,8 @@ enum Command {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    render::init_styling(cli.no_color);
 
     match cli.command {
         Some(Command::Parse(args)) => parse_json::run(args),

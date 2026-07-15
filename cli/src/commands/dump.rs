@@ -6,7 +6,6 @@
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use comfy_table::{Cell, CellAlignment};
-use owo_colors::OwoColorize;
 use puz_parse::raw;
 use std::path::PathBuf;
 
@@ -55,7 +54,7 @@ fn dump_header(path: &PathBuf) -> Result<()> {
     let header = raw::read_header(&data)
         .with_context(|| format!("{} is too short for a .puz header", path.display()))?;
 
-    println!("{}", path.display().bold());
+    println!("{}", render::bold(path.display()));
     let mut table = render::borderless_table();
     table
         .add_row(vec!["size", &format!("{} bytes", data.len())])
@@ -79,8 +78,8 @@ fn dump_grid(path: &PathBuf) -> Result<()> {
 
     println!(
         "{} {}",
-        path.display().bold(),
-        format!("{}x{}", grids.width, grids.height).dimmed()
+        render::bold(path.display()),
+        render::dim(format!("{}x{}", grids.width, grids.height))
     );
 
     render::print_grid("solution", &grids.solution);
@@ -88,11 +87,14 @@ fn dump_grid(path: &PathBuf) -> Result<()> {
 
     let mismatches = grids.black_square_mismatches();
     if mismatches.is_empty() {
-        println!("{}", "black squares: consistent".green());
+        println!("{}", render::green("black squares: consistent"));
     } else {
         println!(
             "{}",
-            format!("black-square mismatches: {} cell(s)", mismatches.len()).yellow()
+            render::yellow(format!(
+                "black-square mismatches: {} cell(s)",
+                mismatches.len()
+            ))
         );
         let mut table = render::bordered_table();
         table.set_header(vec!["row", "col", "solution", "blank"]);
@@ -106,18 +108,21 @@ fn dump_grid(path: &PathBuf) -> Result<()> {
         }
         println!("{table}");
         if mismatches.len() > 16 {
-            println!("{}", format!("... {} more", mismatches.len() - 16).dimmed());
+            println!(
+                "{}",
+                render::dim(format!("... {} more", mismatches.len() - 16))
+            );
         }
     }
 
     println!(
         "{} {}",
-        "solution bytes:".dimmed(),
+        render::dim("solution bytes:"),
         render::unique_bytes(&grids.solution)
     );
     println!(
         "{} {}",
-        "blank bytes:".dimmed(),
+        render::dim("blank bytes:"),
         render::unique_bytes(&grids.blank)
     );
     Ok(())
@@ -137,7 +142,7 @@ fn dump_strings(path: &PathBuf) -> Result<()> {
 
     println!(
         "{}",
-        format!("--- {} clues ---", strings.clues.len()).bold()
+        render::bold(format!("--- {} clues ---", strings.clues.len()))
     );
     let mut table = render::borderless_table();
     for (i, clue) in strings.clues.iter().enumerate() {
@@ -163,7 +168,7 @@ fn dump_clues(path: &PathBuf) -> Result<()> {
     let geometric = across + down;
     let declared = header.num_clues as usize;
 
-    println!("{}", path.display().bold());
+    println!("{}", render::bold(path.display()));
     let mut summary = render::borderless_table();
     summary
         .add_row(vec!["across slots", &across.to_string()])
@@ -181,11 +186,13 @@ fn dump_clues(path: &PathBuf) -> Result<()> {
     println!("{summary}");
 
     if geometric == declared {
-        println!("{}", "geometry matches declared clue count".green());
+        println!("{}", render::green("geometry matches declared clue count"));
     } else {
         println!(
             "{}",
-            format!("MISMATCH: geometry {geometric} vs declared {declared}").yellow()
+            render::yellow(format!(
+                "MISMATCH: geometry {geometric} vs declared {declared}"
+            ))
         );
     }
 
@@ -226,11 +233,10 @@ fn dump_clues(path: &PathBuf) -> Result<()> {
     {
         println!(
             "{}",
-            format!(
+            render::yellow(format!(
                 "{} extra clue string(s) in file beyond geometric slots:",
                 s.clues.len() - clue_idx
-            )
-            .yellow()
+            ))
         );
         for (i, extra) in s.clues[clue_idx..].iter().enumerate() {
             println!("  [{}] {}", clue_idx + i, render_clue(extra));
