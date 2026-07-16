@@ -6,13 +6,13 @@ mod render;
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 
-use commands::{dump, inspect, parse_json, validate};
+use commands::{dump, export, inspect, parse_json, validate};
 
 #[derive(Parser)]
 #[command(
     name = "puz",
     version,
-    about = "parse and inspect .puz crossword puzzle files",
+    about = "a command-line toolkit for reading, validating, and extracting data from .puz crossword files",
     // Allow `puz file.puz ...` with no subcommand to parse to JSON, preserving
     // the original behavior.
     args_conflicts_with_subcommands = true,
@@ -63,6 +63,9 @@ enum Command {
     /// validate every .puz file under a directory
     Validate(validate::ValidateArgs),
 
+    /// export clue/answer pairs from a directory as JSON Lines
+    Export(export::ExportArgs),
+
     /// show a file's raw structure, even if it fails to parse
     Dump {
         #[command(subcommand)]
@@ -84,6 +87,7 @@ fn main() -> Result<()> {
     match cli.command {
         Some(Command::Parse(args)) => parse_json::run(args),
         Some(Command::Validate(args)) => validate::run(args),
+        Some(Command::Export(args)) => export::run(args),
         Some(Command::Dump { what }) => dump::run(what),
         Some(Command::Inspect { what }) => inspect::run(what),
         None => {

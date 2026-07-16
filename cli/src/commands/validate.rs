@@ -3,7 +3,9 @@
 use anyhow::Result;
 use clap::Args;
 use puz_parse::{PuzWarning, Puzzle};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use crate::commands::collect_puz_files;
 
 #[derive(Args)]
 pub(crate) struct ValidateArgs {
@@ -21,8 +23,7 @@ pub(crate) struct ValidateArgs {
 }
 
 pub(crate) fn run(args: ValidateArgs) -> Result<()> {
-    let mut files = Vec::new();
-    collect_puz_files(&args.dir, &mut files);
+    let mut files = collect_puz_files(&args.dir);
     files.sort();
 
     if files.is_empty() {
@@ -81,20 +82,4 @@ pub(crate) fn run(args: ValidateArgs) -> Result<()> {
     println!("clean:              {clean}");
 
     Ok(())
-}
-
-/// Recursively collect all `.puz` files under `dir`.
-fn collect_puz_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_puz_files(&path, out);
-        } else if path.extension().and_then(|e| e.to_str()) == Some("puz") {
-            out.push(path);
-        }
-    }
 }
