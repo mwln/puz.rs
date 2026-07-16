@@ -1,8 +1,9 @@
 # puz
 
-A command-line tool for reading and inspecting `.puz` crossword files. It parses
-puzzles to JSON and provides raw-structure views for debugging. It's built on
-the [`puz-parse`](https://crates.io/crates/puz-parse) library.
+A command-line toolkit for reading, validating, and extracting data from `.puz`
+crossword files. It parses puzzles to JSON, validates directories in bulk,
+inspects raw file structure, and exports clue/answer data. It's built on the
+[`puz-parse`](https://crates.io/crates/puz-parse) library.
 
 ## Contents
 
@@ -37,6 +38,7 @@ Prebuilt binaries for common platforms are also attached to each
 puz [FILES]...              parse puzzles to JSON (default)
 puz parse [FILES]...        parse puzzles to JSON (explicit form)
 puz validate <DIR>          bulk-validate every .puz file under a directory
+puz export <DIR>            export clue/answer pairs as JSON Lines
 puz dump header <FILE>      declared dimensions, clue count, bitmask, version
 puz dump grid <FILE>        the solution and blank grids, with any mismatches
 puz dump strings <FILE>     title, author, copyright, the clue list, and notes
@@ -111,6 +113,40 @@ puz validate ./puzzles
 | `<DIR>` | Directory to scan recursively for `.puz` files. |
 | `--verbose` | Print a line for every file, including clean ones. |
 | `--errors-only` | Print only hard parse failures, not warnings. |
+
+## Exporting clue/answer pairs
+
+Extract every clue paired with its answer across a directory, as
+[JSON Lines](https://jsonlines.org) (one JSON object per line):
+
+```sh
+puz export ./puzzles > clues.jsonl
+```
+
+Each line has the fields reliably found in the file, plus the source path:
+
+```json
+{
+  "file": "<path>",
+  "title": "<string>",
+  "author": "<string>",
+  "direction": "across|down",
+  "number": <int>,
+  "clue": "<string>",
+  "answer": "<string>"
+}
+```
+
+Outlet and date are not emitted: they are inconsistent inside `.puz` files and
+usually live in the directory layout. Derive them from `file` downstream. A
+progress summary is written to stderr, so redirecting stdout gives a clean
+data file. Files that fail to parse are skipped with a note on stderr.
+
+The output streams, so it composes with standard tools:
+
+```sh
+puz export ./puzzles | jq -r 'select(.answer == "OREO") | .clue' | sort | uniq -c
+```
 
 ## Inspecting a file
 
