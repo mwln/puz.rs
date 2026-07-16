@@ -442,7 +442,9 @@ mod tests {
         // char © is representable in Windows-1252, so a decode+re-encode changes
         // the byte count; validation must use the raw bytes and accept the file.
         let bytes = build_puz(b"ABCD", "Test", "Author", "© Sample Corp Inc.", "");
-        crate::validate_bytes(&bytes)
+        crate::Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
             .expect("valid file with a UTF-8-encoded copyright must pass validation");
     }
 
@@ -453,7 +455,9 @@ mod tests {
         // computed over the original byte 0xC2, not a UTF-8 re-encoding of the
         // decoded char (which would be 0xC3 0x82), or validation wrongly fails.
         let bytes = build_puz(&[0xC2, b'B', b'C', b'D'], "T", "A", "", "");
-        crate::validate_bytes(&bytes)
+        crate::Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
             .expect("valid file with a high-byte grid cell must pass validation");
     }
 }

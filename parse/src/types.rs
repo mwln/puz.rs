@@ -28,11 +28,15 @@ pub struct PuzzleInfo {
 
 /// The puzzle grid containing both solution and blank layouts.
 ///
-/// The grid is represented as vectors of strings, where each string is a row.
-/// Characters represent:
+/// Each grid is a vector of rows, one `String` per row. Characters represent:
 /// - `.` = black/blocked square
-/// - `-` = empty square (in blank grid)
-/// - Letters/numbers = cell content
+/// - `-` = empty square (in the blank grid)
+/// - letters/numbers = cell content
+///
+/// The fields are public, but [`width`](Self::width), [`height`](Self::height),
+/// [`solution_cell`](Self::solution_cell), [`blank_cell`](Self::blank_cell), and
+/// [`is_black`](Self::is_black) are the safe way to read cells: they count cells
+/// (not bytes) and bounds-check.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "json", derive(serde::Serialize, serde::Deserialize))]
 pub struct Grid {
@@ -40,6 +44,66 @@ pub struct Grid {
     pub blank: Vec<String>,
     /// The solution grid with all answers filled in
     pub solution: Vec<String>,
+}
+
+impl Grid {
+    /// The number of rows (grid height).
+    pub fn height(&self) -> usize {
+        self.solution.len()
+    }
+
+    /// The number of columns (grid width), measured in cells.
+    ///
+    /// A cell is one character. This counts `chars`, not bytes, so a row with a
+    /// multi-byte cell (some puzzles store a high byte as a rebus marker) still
+    /// reports the correct width.
+    pub fn width(&self) -> usize {
+        self.solution
+            .first()
+            .map(|r| r.chars().count())
+            .unwrap_or(0)
+    }
+
+    /// The solution cell at `(row, col)`, or `None` if out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use puz_parse::Puzzle;
+    ///
+    /// let puzzle = Puzzle::new().grid(["AB.", "CDE"]);
+    /// assert_eq!(puzzle.grid.solution_cell(0, 0), Some('A'));
+    /// assert_eq!(puzzle.grid.solution_cell(0, 2), Some('.')); // black square
+    /// assert_eq!(puzzle.grid.solution_cell(9, 9), None);
+    /// ```
+    pub fn solution_cell(&self, row: usize, col: usize) -> Option<char> {
+        cell_at(&self.solution, row, col)
+    }
+
+    /// The blank-grid cell at `(row, col)`, or `None` if out of bounds.
+    pub fn blank_cell(&self, row: usize, col: usize) -> Option<char> {
+        cell_at(&self.blank, row, col)
+    }
+
+    /// Whether the cell at `(row, col)` is a black square (`.`).
+    ///
+    /// Out-of-bounds cells are treated as not black.
+    pub fn is_black(&self, row: usize, col: usize) -> bool {
+        self.solution_cell(row, col) == Some('.')
+    }
+}
+
+/// Read the character at `(row, col)` of a row-per-string grid.
+///
+/// Fast-paths the all-ASCII case with byte indexing (the common `.puz` grid),
+/// falling back to a `chars()` scan only for a non-ASCII row.
+fn cell_at(rows: &[String], row: usize, col: usize) -> Option<char> {
+    let row = rows.get(row)?;
+    if row.is_ascii() {
+        row.as_bytes().get(col).map(|&b| b as char)
+    } else {
+        row.chars().nth(col)
+    }
 }
 
 /// The direction of a clue or word: across or down.
@@ -387,5 +451,68 @@ mod tests {
         assert_eq!(set.get(1), Some("one"));
         assert_eq!(set.as_map().len(), 1);
         assert_eq!(set.into_inner().get(&1).map(String::as_str), Some("one"));
+    }
+
+    fn sample_grid() -> Grid {
+        Grid {
+            solution: vec!["AB.".to_string(), "CDE".to_string()],
+            blank: vec!["--.".to_string(), "---".to_string()],
+        }
+    }
+
+    #[test]
+    fn test_grid_dimensions() {
+        let g = sample_grid();
+        assert_eq!(g.width(), 3);
+        assert_eq!(g.height(), 2);
+    }
+
+    #[test]
+    fn test_grid_dimensions_empty() {
+        let g = Grid {
+            solution: Vec::new(),
+            blank: Vec::new(),
+        };
+        assert_eq!(g.width(), 0);
+        assert_eq!(g.height(), 0);
+    }
+
+    #[test]
+    fn test_grid_cell_access() {
+        let g = sample_grid();
+        assert_eq!(g.solution_cell(0, 0), Some('A'));
+        assert_eq!(g.solution_cell(0, 2), Some('.'));
+        assert_eq!(g.solution_cell(1, 2), Some('E'));
+        assert_eq!(g.blank_cell(0, 0), Some('-'));
+        assert_eq!(g.blank_cell(0, 2), Some('.'));
+    }
+
+    #[test]
+    fn test_grid_cell_out_of_bounds() {
+        let g = sample_grid();
+        assert_eq!(g.solution_cell(2, 0), None); // row past height
+        assert_eq!(g.solution_cell(0, 3), None); // col past width
+        assert_eq!(g.blank_cell(9, 9), None);
+    }
+
+    #[test]
+    fn test_grid_is_black() {
+        let g = sample_grid();
+        assert!(g.is_black(0, 2));
+        assert!(!g.is_black(0, 0));
+        assert!(!g.is_black(5, 5)); // out of bounds is not black
+    }
+
+    #[test]
+    fn test_grid_cell_non_ascii_row() {
+        // A high byte decodes to a multi-byte char; width must count cells, and
+        // cell access must return the char, not a byte slice.
+        let g = Grid {
+            solution: vec!["\u{00C2}B".to_string()],
+            blank: vec!["--".to_string()],
+        };
+        assert_eq!(g.width(), 2);
+        assert_eq!(g.solution_cell(0, 0), Some('\u{00C2}'));
+        assert_eq!(g.solution_cell(0, 1), Some('B'));
     }
 }

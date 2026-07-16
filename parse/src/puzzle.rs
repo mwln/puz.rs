@@ -396,11 +396,9 @@ impl PuzzleReader {
     }
 
     fn open(path: &Path) -> Result<std::fs::File, PuzError> {
-        std::fs::File::open(path).map_err(|e| PuzError::IoError {
-            message: format!("Failed to open file: {e}"),
-            kind: e.kind(),
-            position: None,
-        })
+        // `io::Error` converts into `PuzError::Io` via `#[from]`, preserving the
+        // original error as the source.
+        Ok(std::fs::File::open(path)?)
     }
 
     /// Parse from a file path, returning the puzzle and its warnings.

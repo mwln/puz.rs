@@ -383,7 +383,7 @@ mod tests {
         let result = parse_grids(&mut reader, width, height);
 
         assert!(result.is_err());
-        matches!(result.unwrap_err(), PuzError::IoError { .. });
+        matches!(result.unwrap_err(), PuzError::Io(_));
     }
 
     /// Test grid parsing with consistency validation failure
