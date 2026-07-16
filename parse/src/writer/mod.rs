@@ -208,7 +208,10 @@ mod tests {
 
         // The file's stored checksums are over the emitted ':' bytes, and the
         // verifier must checksum the same bytes, so strict validation passes.
-        crate::validate_bytes(&bytes).expect("diagramless file must pass strict validation");
+        Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
+            .expect("diagramless file must pass strict validation");
 
         let reparsed = Puzzle::from_bytes(&bytes).unwrap();
         assert!(reparsed.info.is_diagramless);
@@ -445,9 +448,12 @@ mod tests {
         // recomputation. This is the non-circular integrity check: the parser
         // recomputes from puzzle data, not from how the writer built the bytes.
         let bytes = to_bytes(&sample_puzzle()).unwrap();
-        crate::validate_bytes(&bytes).expect("written file should validate");
+        Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
+            .expect("written file should validate");
         // lenient parse should emit no checksum-mismatch warning
-        let result = crate::parse(&bytes[..]).unwrap();
+        let result = Puzzle::reader().from_bytes_verbose(&bytes).unwrap();
         assert!(
             !result
                 .warnings
@@ -464,10 +470,13 @@ mod tests {
         let mut bytes = to_bytes(&sample_puzzle()).unwrap();
         bytes[0x00] ^= 0xFF;
 
-        let err = crate::validate_bytes(&bytes).unwrap_err();
+        let err = Puzzle::reader()
+            .strict(true)
+            .from_bytes(&bytes)
+            .unwrap_err();
         assert!(matches!(err, PuzError::InvalidChecksum { .. }));
 
-        let result = crate::parse(&bytes[..]).unwrap();
+        let result = Puzzle::reader().from_bytes_verbose(&bytes).unwrap();
         assert!(
             result
                 .warnings
@@ -482,7 +491,10 @@ mod tests {
         let mut bytes = to_bytes(&sample_puzzle()).unwrap();
         bytes[0x0E] ^= 0xFF;
         assert!(matches!(
-            crate::validate_bytes(&bytes).unwrap_err(),
+            Puzzle::reader()
+                .strict(true)
+                .from_bytes(&bytes)
+                .unwrap_err(),
             PuzError::InvalidChecksum { .. }
         ));
     }
@@ -492,7 +504,10 @@ mod tests {
         let mut bytes = to_bytes(&sample_puzzle()).unwrap();
         bytes[0x10] ^= 0xFF;
         assert!(matches!(
-            crate::validate_bytes(&bytes).unwrap_err(),
+            Puzzle::reader()
+                .strict(true)
+                .from_bytes(&bytes)
+                .unwrap_err(),
             PuzError::InvalidChecksum { .. }
         ));
     }

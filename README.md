@@ -27,11 +27,17 @@ The `cli` crate depends on `parse`.
 
 ## Features
 
-- Parses the full `.puz` binary format: metadata, grids, and clues.
-- Handles extensions like rebus squares and circled cells.
+- Parses the full `.puz` binary format: metadata, grids, clues, and extensions
+  like rebus squares and circled cells.
+- Writes `.puz` files back out, including diagramless puzzles, so puzzles
+  round-trip.
+- Builds puzzles in code with `Puzzle::new()` and reads clue/answer pairs off
+  the grid.
 - Validates checksums while parsing and surfaces problems as warnings.
+- CLI for parsing to JSON, bulk validation, raw-structure inspection, and
+  clue/answer export.
 - Optional JSON serialization behind the `json` feature.
-- Pure, memory-safe Rust with zero-copy parsing where it's practical.
+- Pure, memory-safe Rust (`unsafe` is forbidden).
 
 ## Getting started
 
@@ -63,10 +69,10 @@ checks CI runs and how to submit changes.
 Add `puz-parse` to your `Cargo.toml`, then parse a file:
 
 ```rust
-use puz_parse::parse_file;
+use puz_parse::Puzzle;
 
 fn main() -> Result<(), puz_parse::PuzError> {
-    let puzzle = parse_file("puzzle.puz")?;
+    let puzzle = Puzzle::from_file("puzzle.puz")?;
     println!("{} by {}", puzzle.info.title, puzzle.info.author);
     Ok(())
 }
@@ -78,14 +84,17 @@ examples.
 
 ### CLI
 
-The `puz` command reads one or more `.puz` files and prints their contents as
-JSON:
+The `puz` command is a toolkit for `.puz` files. By default it parses to JSON,
+with subcommands for validation, inspection, and data export:
 
 ```sh
-puz puzzle.puz --pretty
+puz puzzle.puz --pretty        # parse to JSON
+puz validate ./puzzles         # bulk-validate a directory
+puz dump grid puzzle.puz       # show the raw grid structure
+puz export ./puzzles           # clue/answer pairs as JSON Lines
 ```
 
-See [cli/README.md](cli/README.md) for the available flags and output format.
+See [cli/README.md](cli/README.md) for the full command reference.
 
 ## File format
 

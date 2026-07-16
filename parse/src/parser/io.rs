@@ -160,7 +160,7 @@ mod tests {
 
         assert!(result.is_err());
         // Should get an IO error due to incomplete read
-        matches!(result.unwrap_err(), PuzError::IoError { .. });
+        matches!(result.unwrap_err(), PuzError::Io(_));
     }
 
     /// Test skip_bytes function with various byte counts
@@ -193,7 +193,7 @@ mod tests {
         // Try to skip more bytes than available
         let result = skip_bytes(&mut reader, 5);
         assert!(result.is_err());
-        matches!(result.unwrap_err(), PuzError::IoError { .. });
+        matches!(result.unwrap_err(), PuzError::Io(_));
     }
 
     /// Test reading single bytes
@@ -264,7 +264,7 @@ mod tests {
 
         let result = read_string_until_nul_raw(&mut reader);
         assert!(result.is_err());
-        matches!(result.unwrap_err(), PuzError::IoError { .. });
+        matches!(result.unwrap_err(), PuzError::Io(_));
     }
 
     /// Test finding sections in extension data

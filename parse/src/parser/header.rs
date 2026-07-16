@@ -321,7 +321,7 @@ mod tests {
         let result = parse_header(&mut reader);
 
         assert!(result.is_err());
-        matches!(result.unwrap_err(), PuzError::IoError { .. });
+        matches!(result.unwrap_err(), PuzError::Io(_));
     }
 
     /// Test header parsing with Windows-1252 encoded version strings

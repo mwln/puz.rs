@@ -112,71 +112,67 @@ mod writer;
 
 pub use error::{ParseResult, PuzError, PuzWarning};
 pub use puzzle::{Puzzle, PuzzleReader};
-pub use types::*;
+pub use types::{ClueAnswer, ClueSet, Clues, Direction, Extensions, Grid, PuzzleInfo, Rebus};
 
 use std::io::Read;
 use std::path::Path;
 
-/// Parse a .puz file from any source that implements `Read`.
-///
-/// This is the core parsing function that provides full control over error handling
-/// and warnings. Use [`Puzzle::from_file`] for a simpler API when parsing from files.
-///
-/// # Arguments
-///
-/// * `reader` - Any type that implements `Read`, such as a `File` or `&[u8]`
-///
-/// # Returns
-///
-/// Returns a `Result<ParseResult<Puzzle>, PuzError>` containing the parsed puzzle data
-/// along with any warnings, or an error if parsing fails.
+/// Parse a .puz file from any source that implements `Read`, returning the
+/// puzzle and any warnings.
 ///
 /// # Example
 ///
 /// ```rust,no_run
-/// use std::fs::File;
-/// use puz_parse::parse;
+/// use puz_parse::Puzzle;
 ///
-/// let file = File::open("puzzle.puz")?;
-/// let result = parse(file)?;
-/// let puzzle = result.result;
-/// for warning in &result.warnings {
+/// let parsed = Puzzle::reader().from_file_verbose("puzzle.puz")?;
+/// for warning in &parsed.warnings {
 ///     eprintln!("Warning: {}", warning);
 /// }
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `Puzzle::from_reader` (or `Puzzle::reader().from_reader_verbose`) instead"
+)]
 pub fn parse<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
     parser::parse_puzzle(reader)
 }
 
 /// Parse a .puz file, requiring all stored checksums to match.
 ///
-/// Unlike [`parse`], which records checksum mismatches as
-/// [`PuzWarning::ChecksumMismatch`] and continues, this returns
-/// [`PuzError::InvalidChecksum`] on the first mismatch. Use this when you need
-/// to reject files whose integrity checks fail.
+/// Returns [`PuzError::InvalidChecksum`] on the first mismatch instead of
+/// recording a warning.
+#[deprecated(
+    since = "0.2.0",
+    note = "use `Puzzle::reader().strict(true).from_reader_verbose(..)` instead"
+)]
 pub fn parse_strict<R: Read>(reader: R) -> Result<ParseResult<Puzzle>, PuzError> {
     parser::parse_puzzle_strict(reader)
 }
 
 /// Validate the checksums of a .puz file without returning the puzzle.
 ///
-/// Returns `Ok(())` if all stored checksums match the recomputed values, or
+/// Returns `Ok(())` if all stored checksums match, or
 /// [`PuzError::InvalidChecksum`] on the first mismatch (or a parse error if the
 /// data is malformed).
 ///
 /// # Example
 ///
 /// ```rust,no_run
-/// use puz_parse::validate_bytes;
+/// use puz_parse::Puzzle;
 ///
 /// let data = std::fs::read("puzzle.puz")?;
-/// match validate_bytes(&data) {
-///     Ok(()) => println!("checksums valid"),
+/// match Puzzle::reader().strict(true).from_bytes(&data) {
+///     Ok(_) => println!("checksums valid"),
 ///     Err(e) => eprintln!("invalid: {e}"),
 /// }
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # Ok::<(), puz_parse::PuzError>(())
 /// ```
+#[deprecated(
+    since = "0.2.0",
+    note = "use `Puzzle::reader().strict(true).from_bytes(..)` instead"
+)]
 pub fn validate_bytes(data: &[u8]) -> Result<(), PuzError> {
     parser::parse_puzzle_strict(data).map(|_| ())
 }
@@ -184,7 +180,7 @@ pub fn validate_bytes(data: &[u8]) -> Result<(), PuzError> {
 /// Parse a .puz file from a file path.
 ///
 /// This is a convenience function that handles file opening and returns just the
-/// puzzle data. Warnings are discarded. Use [`parse`] for full control.
+/// puzzle data. Warnings are discarded. Use [`Puzzle::from_file`] for full control.
 ///
 /// # Arguments
 ///
@@ -205,14 +201,7 @@ pub fn validate_bytes(data: &[u8]) -> Result<(), PuzError> {
 /// ```
 #[deprecated(since = "0.2.0", note = "use `Puzzle::from_file` instead")]
 pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
-    let file = std::fs::File::open(path.as_ref()).map_err(|e| PuzError::IoError {
-        message: format!("Failed to open file: {e}"),
-        kind: e.kind(),
-        position: None,
-    })?;
-
-    let result = parse(file)?;
-    Ok(result.result)
+    Puzzle::from_file(path)
 }
 
 /// Parse a .puz file from a byte slice.
@@ -238,8 +227,7 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Puzzle, PuzError> {
 /// ```
 #[deprecated(since = "0.2.0", note = "use `Puzzle::from_bytes` instead")]
 pub fn parse_bytes(data: &[u8]) -> Result<Puzzle, PuzError> {
-    let result = parse(data)?;
-    Ok(result.result)
+    Puzzle::from_bytes(data)
 }
 
 /// Serialize a puzzle to an in-memory `.puz` byte buffer.
@@ -263,11 +251,8 @@ pub fn to_bytes(puzzle: &Puzzle) -> Result<Vec<u8>, PuzError> {
 /// Write a puzzle to any type that implements `Write`.
 pub fn write<W: std::io::Write>(puzzle: &Puzzle, mut writer: W) -> Result<(), PuzError> {
     let bytes = to_bytes(puzzle)?;
-    writer.write_all(&bytes).map_err(|e| PuzError::IoError {
-        message: format!("Failed to write puzzle: {e}"),
-        kind: e.kind(),
-        position: None,
-    })
+    writer.write_all(&bytes)?;
+    Ok(())
 }
 
 /// Write a puzzle to a file path.
@@ -282,10 +267,6 @@ pub fn write<W: std::io::Write>(puzzle: &Puzzle, mut writer: W) -> Result<(), Pu
 /// # Ok::<(), puz_parse::PuzError>(())
 /// ```
 pub fn write_file<P: AsRef<Path>>(puzzle: &Puzzle, path: P) -> Result<(), PuzError> {
-    let file = std::fs::File::create(path.as_ref()).map_err(|e| PuzError::IoError {
-        message: format!("Failed to create file: {e}"),
-        kind: e.kind(),
-        position: None,
-    })?;
+    let file = std::fs::File::create(path.as_ref())?;
     write(puzzle, file)
 }
