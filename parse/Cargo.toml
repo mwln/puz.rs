@@ -33,7 +33,7 @@ workspace = true
 byteorder = "1.4.3"
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.7"
 
 [[bench]]
 name = "parse"
